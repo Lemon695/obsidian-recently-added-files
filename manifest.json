@@ -1,7 +1,7 @@
 {
 	"id": "new-files",
 	"name": "New Files",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"minAppVersion": "1.0.0",
 	"description": "List files by last added, includes pictures, pdfs, etc.",
 	"author": "Lemon695",
