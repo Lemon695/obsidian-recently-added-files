@@ -11,3 +11,12 @@ As with the file explorer view:
 ## Screenshots
 
 ![sidebar-1](./resources/screenshots/sidebar-1.png)
+
+
+# Function
+
+This plugin can quickly display recently added files, making it easier to process these documents.
+For example: After adding pictures, quickly find and rename them
+
+
+
