@@ -221,12 +221,14 @@ class NewFilesListView extends ItemView {
 		this.data.newFiles = this.data.newFiles.filter(
 			(currFile) => currFile.path !== file.path,
 		);
+
 		this.data.newFiles.unshift({
 			basename: file.basename,
 			path: file.path,
 		});
 
-		await this.plugin.pruneLength(); // Handles the save
+		//处理保存
+		await this.plugin.pruneLength();
 	};
 
 	private readonly update = async (openedFile: TFile): Promise<void> => {
@@ -458,7 +460,7 @@ export default class NewFilesPlugin extends Plugin {
 		);
 
 		if (!existingEntry) {
-			this.data.newFiles.push({
+			this.data.newFiles.unshift({
 				path: file.path,
 				basename: this.trimExtension(file.name),
 			});
