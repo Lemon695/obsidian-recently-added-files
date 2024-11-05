@@ -12,6 +12,8 @@ import {
 	Setting,
 	TAbstractFile,
 	TFile,
+	Workspace,
+	HoverParent,
 	WorkspaceLeaf,
 } from 'obsidian';
 
@@ -29,6 +31,24 @@ interface NewFilesData {
 	omittedPaths: string[];
 	omittedTags: string[];
 	maxLength?: number;
+}
+
+//dragManager-定义接口
+interface DragManagerInterface {
+	dragFile: (event: DragEvent, file: TFile) => unknown;
+	onDragStart: (event: DragEvent, dragData: unknown) => void;
+}
+
+//Workspace-扩展定义接口
+interface WorkspaceWithHoverSource extends Workspace {
+	registerHoverLinkSource: (
+		source: string,
+		config: {
+			display: string;
+			defaultMod: boolean;
+		}
+	) => void;
+	unregisterHoverLinkSource: (source: string) => void;
 }
 
 const defaultMaxLength: number = 100;
@@ -139,7 +159,11 @@ class NewFilesListView extends ItemView {
 					'',
 				);
 
-				const dragManager = (this.app as any).dragManager;
+				if (!file) {
+					return;
+				}
+
+				const dragManager = (this.app as unknown as { dragManager: DragManagerInterface }).dragManager;
 				const dragData = dragManager.dragFile(event, file);
 				dragManager.onDragStart(event, dragData);
 			});
@@ -170,6 +194,10 @@ class NewFilesListView extends ItemView {
 						})
 				);
 				const file = this.app.vault.getAbstractFileByPath(currentFile?.path);
+				if (!file) {
+					return;
+				}
+
 				this.app.workspace.trigger(
 					'file-menu',
 					menu,
@@ -183,7 +211,8 @@ class NewFilesListView extends ItemView {
 				if (!currentFile) return;
 
 				const newLeaf = Keymap.isModEvent(event)
-				this.focusFile(currentFile, newLeaf);
+				// 添加条件运算符
+				this.focusFile(currentFile, newLeaf ? 'tab' : false);
 			});
 
 			navFileTitleContent.addEventListener('mousedown', (event: MouseEvent) => {
@@ -297,12 +326,12 @@ export default class NewFilesPlugin extends Plugin {
 			},
 		});
 
-		(this.app.workspace as any).registerHoverLinkSource(
+		((this.app.workspace as unknown) as WorkspaceWithHoverSource).registerHoverLinkSource(
 			NewFilesListViewType,
 			{
 				display: 'New Files',
 				defaultMod: true,
-			},
+			}
 		);
 
 		this.app.workspace.onLayoutReady(() => {
@@ -332,8 +361,8 @@ export default class NewFilesPlugin extends Plugin {
 	}
 
 	public onunload(): void {
-		(this.app.workspace as any).unregisterHoverLinkSource(
-			NewFilesListViewType,
+		((this.app.workspace as unknown) as WorkspaceWithHoverSource).unregisterHoverLinkSource(
+			NewFilesListViewType
 		);
 	}
 
@@ -368,6 +397,10 @@ export default class NewFilesPlugin extends Plugin {
 	};
 
 	public readonly shouldAddFile = (file: FilePath): boolean => {
+		if (!file || !file.path) {
+			return false;
+		}
+
 		// Matches for ignored Paths
 		const patterns: string[] = this.data.omittedPaths.filter(
 			(path) => path.length > 0,
@@ -536,7 +569,7 @@ class NewFilesSettingTab extends PluginSettingTab {
 			.setDesc('Maximum number of filenames to keep in the list.')
 			.addText((text) => {
 				text.inputEl.setAttr('type', 'number');
-				text.inputEl.setAttr('placeholder', defaultMaxLength);
+				text.inputEl.setAttr('placeholder', defaultMaxLength.toString());
 				text
 					.setValue(this.plugin.data.maxLength?.toString() || '')
 					.onChange((value) => {
@@ -545,13 +578,16 @@ class NewFilesSettingTab extends PluginSettingTab {
 							new Notice('List length must be a positive integer');
 							return;
 						}
+						this.plugin.data.maxLength = parsed;
 					});
 				text.inputEl.onblur = (e: FocusEvent) => {
-					const maxFiles = (e.target as HTMLInputElement).value;
-					const parsed = parseInt(maxFiles, 10);
-					this.plugin.data.maxLength = parsed;
-					this.plugin.pruneLength();
-					this.plugin.view.redraw();
+					const target = e.target as HTMLInputElement;
+					const parsed = parseInt(target.value, 10);
+					if (!isNaN(parsed) && parsed > 0) {
+						this.plugin.data.maxLength = parsed;
+						this.plugin.pruneLength();
+						this.plugin.view.redraw();
+					}
 				};
 			});
 
