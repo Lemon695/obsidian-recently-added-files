@@ -1,8 +1,8 @@
 {
-	"id": "new-files",
-	"name": "New Files",
-	"version": "1.0.4",
-	"minAppVersion": "1.0.0",
+	"id": "recently-added-files",
+	"name": "Recently Added Files",
+	"version": "1.0.5",
+	"minAppVersion": "1.7.4",
 	"description": "List files by last added, includes pictures, pdfs, etc.",
 	"author": "Lemon695",
 	"authorUrl": "https://github.com/Lemon695",

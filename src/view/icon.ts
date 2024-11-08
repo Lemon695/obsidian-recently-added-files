@@ -1,4 +1,4 @@
-export const ICON_NAME = "New-Files";
+export const ICON_NAME = "Recently-Added-Files";
 export const ICON_SVG=
 	'<svg width="100" height="100" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">\n' +
 	'<g id="File / File_Add">\n' +

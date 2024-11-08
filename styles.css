@@ -1,31 +1,31 @@
-.new-files-title {
+.newly-added-files-title {
 	justify-content: space-between;
 	align-items: unset;
 }
 
-.new-files-title-content {
+.newly-added-files-title-content {
 	flex-grow: 1;
 }
 
-.new-files-file-delete {
+.newly-added-files-file-delete {
 	display: none;
 }
 
-.new-files-title:hover .new-files-file-delete {
+.newly-added-files-title:hover .newly-added-files-file-delete {
 	display: flex;
 	cursor: var(--cursor);
 }
 
-.new-files-file-delete:hover {
+.newly-added-files-file-delete:hover {
 	color: var(--nav-item-color-hover);
 }
 
-.new-files-donation {
+.newly-added-files-donation {
 	width: 70%;
 	margin: 0 auto;
 	text-align: center;
 }
 
-.new-files-donate-button {
+.newly-added-files-donate-button {
 	margin: 10px;
 }

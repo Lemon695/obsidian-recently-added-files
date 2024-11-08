@@ -39,12 +39,11 @@ interface WorkspaceWithHoverSource extends Workspace {
 			defaultMod: boolean;
 		}
 	) => void;
-	unregisterHoverLinkSource: (source: string) => void;
 }
 
 const defaultMaxLength: number = 100;
 
-const NewFilesListViewType = 'new-files';
+const NewFilesListViewType = 'newly-added-files';
 
 class NewFilesListView extends ItemView {
 	private readonly plugin: NewFilesPlugin;
@@ -70,7 +69,7 @@ class NewFilesListView extends ItemView {
 	}
 
 	public getDisplayText(): string {
-		return 'New Files';
+		return '';
 	}
 
 	public getIcon(): string {
@@ -117,13 +116,13 @@ class NewFilesListView extends ItemView {
 
 		this.data.newFiles.forEach((currentFile) => {
 			const navFile = childrenEl.createDiv({
-				cls: 'tree-item nav-file new-files-file',
+				cls: 'tree-item nav-file newly-added-files-file',
 			});
 			const navFileTitle = navFile.createDiv({
-				cls: 'tree-item-self is-clickable nav-file-title new-files-title',
+				cls: 'tree-item-self is-clickable nav-file-title newly-added-files-title',
 			});
 			const navFileTitleContent = navFileTitle.createDiv({
-				cls: 'tree-item-inner nav-file-title-content new-files-title-content',
+				cls: 'tree-item-inner nav-file-title-content newly-added-files-title-content',
 			});
 
 			//Show File Extensions
@@ -212,7 +211,7 @@ class NewFilesListView extends ItemView {
 			});
 
 			const navFileDelete = navFileTitle.createDiv({
-				cls: 'new-files-file-delete menu-item-icon',
+				cls: 'newly-added-files-file-delete menu-item-icon',
 			});
 			setIcon(navFileDelete, 'lucide-x');
 			navFileDelete.addEventListener('click', async (event) => {
@@ -295,7 +294,7 @@ export default class NewFilesPlugin extends Plugin {
 		);
 
 		this.addCommand({
-			id: 'new-files-open',
+			id: 'files-list',
 			name: 'Open',
 			callback: async () => {
 				let leaf: WorkspaceLeaf | null;
@@ -348,9 +347,7 @@ export default class NewFilesPlugin extends Plugin {
 	}
 
 	public onunload(): void {
-		((this.app.workspace as unknown) as WorkspaceWithHoverSource).unregisterHoverLinkSource(
-			NewFilesListViewType
-		);
+
 	}
 
 	public async loadData(): Promise<void> {
@@ -568,7 +565,7 @@ class NewFilesSettingTab extends PluginSettingTab {
 		}).create();
 
 		const div = containerEl.createEl('div', {
-			cls: 'new-files-donation',
+			cls: 'newly-added-files-donation',
 		});
 
 	}
