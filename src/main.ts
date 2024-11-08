@@ -18,20 +18,11 @@ import {
 } from 'obsidian';
 
 import {getApiSafe} from 'front-matter-plugin-api-provider';
-
+import {FilePath, NewFilesData, DEFAULT_DATA} from './types/FileTypes';
 import {ICON_NAME, ICON_SVG} from "./view/icon";
-
-interface FilePath {
-	path: string;
-	basename: string;
-}
-
-interface NewFilesData {
-	newFiles: FilePath[];
-	omittedPaths: string[];
-	omittedTags: string[];
-	maxLength?: number;
-}
+import {ListLengthSetting} from "./setting/ListLengthSettingParams";
+import {ShowExtensionSetting} from "./setting/ShowExtensionSetting";
+import {FileNameUtils} from './utils/FileNameUtils';
 
 //dragManager-定义接口
 interface DragManagerInterface {
@@ -52,12 +43,6 @@ interface WorkspaceWithHoverSource extends Workspace {
 }
 
 const defaultMaxLength: number = 100;
-
-const DEFAULT_DATA: NewFilesData = {
-	newFiles: [],
-	omittedPaths: [],
-	omittedTags: [],
-};
 
 const NewFilesListViewType = 'new-files';
 
@@ -141,9 +126,11 @@ class NewFilesListView extends ItemView {
 				cls: 'tree-item-inner nav-file-title-content new-files-title-content',
 			});
 
+			//Show File Extensions
 			const title = frontMatterResolver
-				? frontMatterResolver.resolve(currentFile.path) ?? currentFile.basename
-				: currentFile.basename;
+				? frontMatterResolver.resolve(currentFile.path) ??
+				FileNameUtils.getDisplayName(currentFile, this.data.showExtension ?? false)
+				: FileNameUtils.getDisplayName(currentFile, this.data.showExtension ?? false);
 			navFileTitleContent.setText(title);
 
 			if (openFile && currentFile.path === openFile.path) {
@@ -393,7 +380,9 @@ export default class NewFilesPlugin extends Plugin {
 				toRemove,
 			);
 		}
+
 		await this.saveData();
+		this.view.redraw();
 	};
 
 	public readonly shouldAddFile = (file: FilePath): boolean => {
@@ -455,7 +444,7 @@ export default class NewFilesPlugin extends Plugin {
 		);
 		if (entry) {
 			entry.path = file.path;
-			entry.basename = this.trimExtension(file.name);
+			entry.basename = FileNameUtils.trimExtension(file.name);
 			this.view.redraw();
 			await this.saveData();
 		}
@@ -495,15 +484,15 @@ export default class NewFilesPlugin extends Plugin {
 		if (!existingEntry) {
 			this.data.newFiles.unshift({
 				path: file.path,
-				basename: this.trimExtension(file.name),
+				basename: FileNameUtils.trimExtension(file.name),
 			});
-			this.view.redraw();
+
 			await this.saveData();
+			await this.pruneLength();
+			this.view.redraw();
 		}
 	};
 
-	private readonly trimExtension = (name: string): string =>
-		name.replace(/\.[^/.]+$/, '');
 }
 
 class NewFilesSettingTab extends PluginSettingTab {
@@ -564,32 +553,19 @@ class NewFilesSettingTab extends PluginSettingTab {
 				};
 			});
 
-		new Setting(containerEl)
-			.setName('List length')
-			.setDesc('Maximum number of filenames to keep in the list.')
-			.addText((text) => {
-				text.inputEl.setAttr('type', 'number');
-				text.inputEl.setAttr('placeholder', defaultMaxLength.toString());
-				text
-					.setValue(this.plugin.data.maxLength?.toString() || '')
-					.onChange((value) => {
-						const parsed = parseInt(value, 10);
-						if (!Number.isNaN(parsed) && parsed <= 0) {
-							new Notice('List length must be a positive integer');
-							return;
-						}
-						this.plugin.data.maxLength = parsed;
-					});
-				text.inputEl.onblur = (e: FocusEvent) => {
-					const target = e.target as HTMLInputElement;
-					const parsed = parseInt(target.value, 10);
-					if (!isNaN(parsed) && parsed > 0) {
-						this.plugin.data.maxLength = parsed;
-						this.plugin.pruneLength();
-						this.plugin.view.redraw();
-					}
-				};
-			});
+		// ListLengthSetting组件
+		new ListLengthSetting({
+			containerEl,
+			plugin: this.plugin,
+			defaultMaxLength
+		}).create();
+
+		// 在其他设置后添加新的扩展名显示设置
+		new ShowExtensionSetting({
+			containerEl,
+			plugin: this.plugin,
+			defaultShowExtension: false
+		}).create();
 
 		const div = containerEl.createEl('div', {
 			cls: 'new-files-donation',
