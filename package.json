@@ -1,6 +1,6 @@
 {
-	"name": "obsidian-new-files",
-	"version": "1.7.0",
+	"name": "recently-added-files",
+	"version": "1.7.4",
 	"description": "List files by most new files",
 	"main": "main.js",
 	"scripts": {

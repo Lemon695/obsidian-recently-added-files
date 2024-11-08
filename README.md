@@ -1,4 +1,4 @@
-# Obsidian New Files
+# Recently Added Files
 
 This plugin displays a list of most last added files in the sidebar. Optionally include paths of files which should be excluded from the list.
 

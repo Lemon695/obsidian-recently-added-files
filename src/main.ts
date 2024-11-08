@@ -39,7 +39,6 @@ interface WorkspaceWithHoverSource extends Workspace {
 			defaultMod: boolean;
 		}
 	) => void;
-	unregisterHoverLinkSource: (source: string) => void;
 }
 
 const defaultMaxLength: number = 100;
@@ -70,7 +69,7 @@ class NewFilesListView extends ItemView {
 	}
 
 	public getDisplayText(): string {
-		return 'New Files';
+		return '';
 	}
 
 	public getIcon(): string {
@@ -295,7 +294,7 @@ export default class NewFilesPlugin extends Plugin {
 		);
 
 		this.addCommand({
-			id: 'new-files-open',
+			id: 'files-list',
 			name: 'Open',
 			callback: async () => {
 				let leaf: WorkspaceLeaf | null;
@@ -348,9 +347,7 @@ export default class NewFilesPlugin extends Plugin {
 	}
 
 	public onunload(): void {
-		((this.app.workspace as unknown) as WorkspaceWithHoverSource).unregisterHoverLinkSource(
-			NewFilesListViewType
-		);
+
 	}
 
 	public async loadData(): Promise<void> {
