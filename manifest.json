@@ -3,7 +3,7 @@
 	"name": "Recently Added Files",
 	"version": "1.0.6",
 	"minAppVersion": "1.7.4",
-	"description": "List files by last added, includes pictures, pdfs, etc.",
+	"description": "List files by last added, including pictures, MP4s, PDFs etc.",
 	"author": "Lemon695",
 	"authorUrl": "https://github.com/Lemon695",
 	"isDesktopOnly": false
