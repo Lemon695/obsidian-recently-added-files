@@ -9,11 +9,10 @@ import {
 	Plugin,
 	PluginSettingTab,
 	setIcon,
+	setTooltip,
 	Setting,
 	TAbstractFile,
 	TFile,
-	Workspace,
-	HoverParent,
 	WorkspaceLeaf,
 } from 'obsidian';
 
@@ -30,19 +29,7 @@ interface DragManagerInterface {
 	onDragStart: (event: DragEvent, dragData: unknown) => void;
 }
 
-//Workspace-扩展定义接口
-interface WorkspaceWithHoverSource extends Workspace {
-	registerHoverLinkSource: (
-		source: string,
-		config: {
-			display: string;
-			defaultMod: boolean;
-		}
-	) => void;
-}
-
 const defaultMaxLength: number = 100;
-
 const NewFilesListViewType = 'newly-added-files';
 
 class NewFilesListView extends ItemView {
@@ -131,6 +118,8 @@ class NewFilesListView extends ItemView {
 				FileNameUtils.getDisplayName(currentFile, this.data.showExtension ?? false)
 				: FileNameUtils.getDisplayName(currentFile, this.data.showExtension ?? false);
 			navFileTitleContent.setText(title);
+
+			setTooltip(navFile, currentFile.path);
 
 			if (openFile && currentFile.path === openFile.path) {
 				navFileTitle.addClass('is-active');
@@ -229,33 +218,7 @@ class NewFilesListView extends ItemView {
 		this.data.newFiles = this.data.newFiles.filter(
 			(currFile) => currFile.path !== file.path,
 		);
-		await this.plugin.pruneLength();
-	};
-
-	private readonly updateData = async (file: TFile): Promise<void> => {
-		this.data.newFiles = this.data.newFiles.filter(
-			(currFile) => currFile.path !== file.path,
-		);
-
-		this.data.newFiles.unshift({
-			basename: file.basename,
-			path: file.path,
-		});
-
-		//处理保存
-		await this.plugin.pruneLength();
-	};
-
-	private readonly update = async (openedFile: TFile): Promise<void> => {
-
-		await sleep(100);
-
-		if (!openedFile || !this.plugin.shouldAddFile(openedFile)) {
-			return;
-		}
-
-		await this.updateData(openedFile);
-		this.redraw();
+		await this.plugin.saveData();
 	};
 	private readonly focusFile = (file: FilePath, newLeaf: boolean | PaneType): void => {
 		const targetFile = this.app.vault
@@ -312,7 +275,7 @@ export default class NewFilesPlugin extends Plugin {
 			},
 		});
 
-		((this.app.workspace as unknown) as WorkspaceWithHoverSource).registerHoverLinkSource(
+		this.registerHoverLinkSource(
 			NewFilesListViewType,
 			{
 				display: 'New Files',
@@ -360,6 +323,8 @@ export default class NewFilesPlugin extends Plugin {
 
 	public async onExternalSettingsChange(): Promise<void> {
 		await this.loadData();
+		await this.pruneLength();
+		await this.pruneOmittedFiles();
 		this.view.redraw();
 	}
 
@@ -563,10 +528,6 @@ class NewFilesSettingTab extends PluginSettingTab {
 			plugin: this.plugin,
 			defaultShowExtension: false
 		}).create();
-
-		const div = containerEl.createEl('div', {
-			cls: 'newly-added-files-donation',
-		});
 
 	}
 }
