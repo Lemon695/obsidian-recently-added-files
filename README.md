@@ -1,9 +1,11 @@
 # Recently Added Files
 
+English | [中文](./README.zh-cn.md)
+
 This plugin displays a list of most last added files in the sidebar. Optionally include paths of files which should be excluded from the list.
 
 As with the file explorer view:
-- New files
+- New md files
 - New images
 - New PDF
 - ......
