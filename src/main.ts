@@ -22,15 +22,13 @@ import {ICON_NAME, ICON_SVG} from "./view/icon";
 import {ListLengthSetting} from "./setting/ListLengthSettingParams";
 import {ShowExtensionSetting} from "./setting/ShowExtensionSetting";
 import {FileNameUtils} from './utils/FileNameUtils';
+import {MD5Utils, FileRenameUtils} from './utils/RenameFileToMD5';
+import {defaultMaxLength, NewFilesListViewType} from "./constants";
 
-//dragManager-定义接口
 interface DragManagerInterface {
 	dragFile: (event: DragEvent, file: TFile) => unknown;
 	onDragStart: (event: DragEvent, dragData: unknown) => void;
 }
-
-const defaultMaxLength: number = 100;
-const NewFilesListViewType = 'newly-added-files';
 
 class NewFilesListView extends ItemView {
 	private readonly plugin: NewFilesPlugin;
@@ -168,6 +166,19 @@ class NewFilesListView extends ItemView {
 							this.focusFile(currentFile, 'tab');
 						})
 				);
+
+				// 添加MD5重命名文件选项
+				menu.addItem((item) =>
+					item
+						.setSection('action')
+						.setTitle('Rename with MD5')
+						.setIcon('file-signature')
+						.onClick(async () => {
+							const file = this.app.vault.getFileByPath(currentFile.path);
+							await FileRenameUtils.renameWithMD5(this.app, file);
+						})
+				);
+
 				const file = this.app.vault.getAbstractFileByPath(currentFile?.path);
 				if (!file) {
 					return;
@@ -407,8 +418,8 @@ export default class NewFilesPlugin extends Plugin {
 		if (entry) {
 			entry.path = file.path;
 			entry.basename = FileNameUtils.trimExtension(file.name);
-			this.view.redraw();
 			await this.saveData();
+			this.view.redraw();
 		}
 	};
 
@@ -425,8 +436,8 @@ export default class NewFilesPlugin extends Plugin {
 		);
 
 		if (beforeLen !== this.data.newFiles.length) {
-			this.view.redraw();
 			await this.saveData();
+			this.view.redraw();
 		}
 	};
 
@@ -454,7 +465,6 @@ export default class NewFilesPlugin extends Plugin {
 			this.view.redraw();
 		}
 	};
-
 }
 
 class NewFilesSettingTab extends PluginSettingTab {
