@@ -20,6 +20,18 @@ As with the file explorer view:
 This plugin can quickly display recently added files, making it easier to process these documents.
 For example: After adding pictures, quickly find and rename them
 
+## Rename newly added files
+
+During the document editing process, adding multiple images with the same name can lead to name duplication. To address this, an MD5 renaming feature has been added to quickly update the names of newly added images.
+
+Before modification
+
+![](./resources/screenshots/img-IUASUDF-98234723894-001.png)
+
+After modification
+
+![](./resources/screenshots/img-IUASUDF-98234723894-002.png)
+
 
 # 🙏 Acknowledgements
 
