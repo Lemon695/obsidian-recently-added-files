@@ -54,7 +54,7 @@ class NewFilesListView extends ItemView {
 	}
 
 	public getDisplayText(): string {
-		return '';
+		return 'Recently Added Files';
 	}
 
 	public getIcon(): string {
@@ -289,7 +289,7 @@ export default class NewFilesPlugin extends Plugin {
 		this.registerHoverLinkSource(
 			NewFilesListViewType,
 			{
-				display: 'New Files',
+				display: 'Recently Added Files',
 				defaultMod: true,
 			}
 		);
