@@ -29,3 +29,17 @@
 .newly-added-files-donate-button {
 	margin: 10px;
 }
+
+.newly-added-files-filter {
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.newly-added-files-filter select {
+	width: 100%;
+	background-color: var(--background-primary);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 4px;
+}

@@ -1,18 +1,6 @@
 import {
-	addIcon,
-	App,
-	ItemView,
-	Keymap,
-	Menu,
-	Notice,
-	PaneType,
-	Plugin,
-	PluginSettingTab,
-	setIcon,
-	setTooltip,
-	Setting,
-	TAbstractFile,
-	TFile,
+	addIcon, App, ItemView, Keymap, Menu, Notice, PaneType, Plugin,
+	PluginSettingTab, setIcon, setTooltip, Setting, TAbstractFile, TFile,
 	WorkspaceLeaf,
 } from 'obsidian';
 
@@ -24,6 +12,7 @@ import {ShowExtensionSetting} from "./setting/ShowExtensionSetting";
 import {FileNameUtils} from './utils/FileNameUtils';
 import {MD5Utils, FileRenameUtils} from './utils/RenameFileToMD5';
 import {defaultMaxLength, NewFilesListViewType} from "./constants";
+import {FileTypeFilterSetting} from "./setting/FileTypeFilterSetting";
 
 interface DragManagerInterface {
 	dragFile: (event: DragEvent, file: TFile) => unknown;
@@ -91,6 +80,9 @@ class NewFilesListView extends ItemView {
 		const openFile = this.app.workspace.getActiveFile();
 
 		const rootEl = createDiv({cls: 'nav-folder mod-root'});
+
+		this.createFilterDropdown(rootEl);
+
 		const childrenEl = rootEl.createDiv({cls: 'nav-folder-children'});
 
 		const frontMatterApi = getApiSafe(this.app);
@@ -99,7 +91,9 @@ class NewFilesListView extends ItemView {
 			? frontMatterApi.getResolverFactory()?.createResolver('explorer')
 			: null;
 
-		this.data.newFiles.forEach((currentFile) => {
+		const filteredFiles = this.filterFilesByType(this.data.newFiles);
+
+		filteredFiles.forEach((currentFile) => {
 			const navFile = childrenEl.createDiv({
 				cls: 'tree-item nav-file newly-added-files-file',
 			});
@@ -248,6 +242,62 @@ class NewFilesListView extends ItemView {
 			this.redraw();
 		}
 	};
+
+	private createFilterDropdown(containerEl: HTMLElement): void {
+		const filterContainer = containerEl.createDiv({
+			cls: 'nav-folder-title newly-added-files-filter'
+		});
+
+		const filterDropdown = filterContainer.createEl('select', {
+			cls: 'dropdown'
+		});
+
+		const options = [
+			{value: 'all', label: 'All files'},
+			{value: 'md', label: 'Markdown'},
+			{value: 'pdf', label: 'PDF'},
+			{value: 'other', label: 'Other'}
+		];
+
+		options.forEach(option => {
+			const optionEl = filterDropdown.createEl('option', {
+				text: option.label,
+				value: option.value
+			});
+			if (option.value === this.data.activeFileType) {
+				optionEl.selected = true;
+			}
+		});
+
+		filterDropdown.addEventListener('change', async (event) => {
+			const target = event.target as HTMLSelectElement;
+			this.data.activeFileType = target.value;
+			await this.plugin.saveData();
+			this.redraw();
+		});
+	}
+
+	private filterFilesByType(files: FilePath[]): FilePath[] {
+		if (this.data.activeFileType === 'all') {
+			return files;
+		}
+
+		return files.filter(file => {
+			const extension = file.path.split('.').pop()?.toLowerCase();
+
+			switch (this.data.activeFileType) {
+				case 'md':
+					return extension === 'md';
+				case 'pdf':
+					return extension === 'pdf';
+				case 'other':
+					return extension !== 'md' && extension !== 'pdf';
+				default:
+					return true;
+			}
+		});
+	}
+
 }
 
 export default class NewFilesPlugin extends Plugin {
@@ -539,6 +589,10 @@ class NewFilesSettingTab extends PluginSettingTab {
 			defaultShowExtension: false
 		}).create();
 
+		new FileTypeFilterSetting({
+			containerEl,
+			plugin: this.plugin
+		}).create();
 	}
 }
 
