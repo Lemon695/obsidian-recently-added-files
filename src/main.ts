@@ -13,6 +13,7 @@ import {FileNameUtils} from './utils/FileNameUtils';
 import {MD5Utils, FileRenameUtils} from './utils/RenameFileToMD5';
 import {defaultMaxLength, NewFilesListViewType} from "./constants";
 import {FileTypeFilterSetting} from "./setting/FileTypeFilterSetting";
+import {FileTypeFilterToggleSetting} from "./setting/FileTypeFilterToggleSetting";
 
 interface DragManagerInterface {
 	dragFile: (event: DragEvent, file: TFile) => unknown;
@@ -244,6 +245,11 @@ class NewFilesListView extends ItemView {
 	};
 
 	private createFilterDropdown(containerEl: HTMLElement): void {
+		// 如果未启用筛选功能，直接返回
+		if (!this.data.enableFileTypeFilter) {
+			return;
+		}
+
 		const filterContainer = containerEl.createDiv({
 			cls: 'nav-folder-title newly-added-files-filter'
 		});
@@ -278,7 +284,8 @@ class NewFilesListView extends ItemView {
 	}
 
 	private filterFilesByType(files: FilePath[]): FilePath[] {
-		if (this.data.activeFileType === 'all') {
+		// 如果未启用筛选功能，返回所有文件
+		if (!this.data.enableFileTypeFilter || this.data.activeFileType === 'all') {
 			return files;
 		}
 
@@ -589,6 +596,13 @@ class NewFilesSettingTab extends PluginSettingTab {
 			defaultShowExtension: false
 		}).create();
 
+		// 添加筛选功能开关设置
+		new FileTypeFilterToggleSetting({
+			containerEl,
+			plugin: this.plugin
+		}).create();
+
+		//文件类型筛选设置
 		new FileTypeFilterSetting({
 			containerEl,
 			plugin: this.plugin

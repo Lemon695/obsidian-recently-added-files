@@ -10,6 +10,7 @@ export interface NewFilesData {
 	maxLength?: number;
 	showExtension?: boolean;
 	activeFileType: string;
+	enableFileTypeFilter: boolean; //配置项，是否开启筛选项
 }
 
 export const DEFAULT_DATA: NewFilesData = {
@@ -18,5 +19,6 @@ export const DEFAULT_DATA: NewFilesData = {
 	omittedTags: [],
 	maxLength: 100,
 	showExtension: false,
-	activeFileType: 'all'
+	activeFileType: 'all',
+	enableFileTypeFilter: false, //默认不开启筛选项
 };
