@@ -19,6 +19,8 @@ export class FileTypeFilterSetting {
 					.addOption('all', 'All files')
 					.addOption('md', 'Markdown')
 					.addOption('pdf', 'PDF')
+					.addOption('image', 'Image')
+					.addOption('video', 'Video')
 					.addOption('other', 'Other')
 					.setValue(this.plugin.data.activeFileType)
 					.onChange(async (value) => {

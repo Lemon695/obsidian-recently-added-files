@@ -14,6 +14,7 @@ import {MD5Utils, FileRenameUtils} from './utils/RenameFileToMD5';
 import {defaultMaxLength, NewFilesListViewType} from "./constants";
 import {FileTypeFilterSetting} from "./setting/FileTypeFilterSetting";
 import {FileTypeFilterToggleSetting} from "./setting/FileTypeFilterToggleSetting";
+import {FileUtils} from "./utils/FileUtils";
 
 interface DragManagerInterface {
 	dragFile: (event: DragEvent, file: TFile) => unknown;
@@ -259,10 +260,12 @@ class NewFilesListView extends ItemView {
 		});
 
 		const options = [
-			{value: 'all', label: 'All files'},
-			{value: 'md', label: 'Markdown'},
-			{value: 'pdf', label: 'PDF'},
-			{value: 'other', label: 'Other'}
+			{ value: 'all', label: '所有文件' },
+			{ value: 'md', label: 'Markdown' },
+			{ value: 'pdf', label: 'PDF' },
+			{ value: 'image', label: '图片' },
+			{ value: 'video', label: '视频' },
+			{ value: 'other', label: '其他' }
 		];
 
 		options.forEach(option => {
@@ -294,11 +297,18 @@ class NewFilesListView extends ItemView {
 
 			switch (this.data.activeFileType) {
 				case 'md':
-					return extension === 'md';
+					return FileUtils.isFileType(extension, 'MARKDOWN');
 				case 'pdf':
-					return extension === 'pdf';
+					return FileUtils.isFileType(extension, 'PDF');
+				case 'image':
+					return FileUtils.isFileType(extension, 'IMAGE');
+				case 'video':
+					return FileUtils.isFileType(extension, 'VIDEO');
 				case 'other':
-					return extension !== 'md' && extension !== 'pdf';
+					return !FileUtils.isFileType(extension, 'MARKDOWN') &&
+						!FileUtils.isFileType(extension, 'PDF') &&
+						!FileUtils.isFileType(extension, 'IMAGE') &&
+						!FileUtils.isFileType(extension, 'VIDEO');
 				default:
 					return true;
 			}
