@@ -1,3 +1,9 @@
+.newly-added-files-filter {
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 10px;
+}
+
 .newly-added-files-title {
 	justify-content: space-between;
 	align-items: unset;
