@@ -260,12 +260,12 @@ class NewFilesListView extends ItemView {
 		});
 
 		const options = [
-			{ value: 'all', label: '所有文件' },
-			{ value: 'md', label: 'Markdown' },
-			{ value: 'pdf', label: 'PDF' },
-			{ value: 'image', label: '图片' },
-			{ value: 'video', label: '视频' },
-			{ value: 'other', label: '其他' }
+			{value: 'all', label: 'All files'}, //所有文件
+			{value: 'md', label: 'Markdown'},
+			{value: 'pdf', label: 'PDF'},
+			{value: 'image', label: 'Image'}, //图片
+			{value: 'video', label: 'Video'}, //视频
+			{value: 'other', label: 'Other'} //其他
 		];
 
 		options.forEach(option => {

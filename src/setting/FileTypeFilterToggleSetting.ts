@@ -12,8 +12,8 @@ export class FileTypeFilterToggleSetting {
 
 	create(): void {
 		new Setting(this.containerEl)
-			.setName('启用文件类型筛选')
-			.setDesc('开启后可以按文件类型筛选显示最近文件')
+			.setName('Enable File Type Filter') //启用文件类型筛选
+			.setDesc('When enabled, you can filter and display recent files by file type.') //开启后可以按文件类型筛选显示最近文件
 			.addToggle((toggle) => {
 				toggle
 					.setValue(this.plugin.data.enableFileTypeFilter)
