@@ -20,7 +20,7 @@ As with the file explorer view:
 This plugin can quickly display recently added files, making it easier to process these documents.
 For example: After adding pictures, quickly find and rename them
 
-## Rename newly added files
+## 1、Rename newly added files
 
 During the document editing process, adding multiple images with the same name can lead to name duplication. To address this, an MD5 renaming feature has been added to quickly update the names of newly added images.
 
@@ -31,6 +31,33 @@ Before modification
 After modification
 
 ![](./resources/screenshots/img-IUASUDF-98234723894-002.png)
+
+## 2、File Classification Filter
+
+This project introduces a **File Classification Filter** that enables users to filter and display newly added files based on their types. The supported categories for filtering include:
+
+- **All files**: Displays all files regardless of their type.
+- **Markdown**: Filters and shows only `.md` and `.markdown` files.
+- **PDF**: Filters and shows only `.pdf` files.
+- **Image**: Filters and shows image files, such as `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.svg`, and `.webp`.
+- **Video**: Filters and shows video files, including `.mp4`, `.webm`, `.mov`, `.avi`, `.mkv`, and `.m4v`.
+- **Other**: Displays all files that don't fall under the categories listed above.
+
+This feature helps users quickly navigate through and manage their files based on type, improving efficiency in file handling.
+
+
+
+Plugin configuration: By default, file filtering is disabled and can be enabled based on user needs.
+
+![](./resources/screenshots/img-239742839-KASUHFUIAS-98123-AUSF.png)
+
+![](./resources/screenshots/img-23947324-AISUFYASI-2923-AS-12312.png)
+
+
+
+
+
+
 
 
 # 🙏 Acknowledgements
