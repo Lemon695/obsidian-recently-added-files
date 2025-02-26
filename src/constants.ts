@@ -5,7 +5,8 @@ export const FILE_EXTENSIONS = {
 	IMAGE: ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg', 'webp'],
 	VIDEO: ['mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v'],
 	MARKDOWN: ['md', 'markdown'],
-	PDF: ['pdf']
+	PDF: ['pdf'],
+	CANVAS: ['canvas']
 } as const;
 
 

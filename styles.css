@@ -1,7 +1,27 @@
 .newly-added-files-filter {
 	padding: 8px 12px;
 	border-bottom: 1px solid var(--background-modifier-border);
-	margin-bottom: 10px;
+	margin-bottom: 8px;
+	display: flex;
+	align-items: center;
+}
+
+.newly-added-files-filter select {
+	flex: 1;
+	background-color: var(--background-primary-alt);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 6px 8px;
+	font-size: 0.9em;
+	transition: all 0.15s ease-in-out;
+}
+
+.newly-added-files-filter select:focus,
+.newly-added-files-filter select:hover {
+	border-color: var(--interactive-accent);
+	outline: none;
+	box-shadow: 0 0 0 1px var(--background-modifier-border);
 }
 
 .newly-added-files-title {
@@ -13,17 +33,9 @@
 	flex-grow: 1;
 }
 
-.newly-added-files-file-delete {
-	display: none;
-}
-
 .newly-added-files-title:hover .newly-added-files-file-delete {
 	display: flex;
 	cursor: var(--cursor);
-}
-
-.newly-added-files-file-delete:hover {
-	color: var(--nav-item-color-hover);
 }
 
 .newly-added-files-donation {
@@ -36,16 +48,109 @@
 	margin: 10px;
 }
 
-.newly-added-files-filter {
-	padding: 8px 12px;
-	border-bottom: 1px solid var(--background-modifier-border);
+.newly-added-files-filter-label {
+	font-size: 0.8em;
+	color: var(--text-muted);
+	margin-right: 8px;
+	white-space: nowrap;
 }
 
-.newly-added-files-filter select {
-	width: 100%;
-	background-color: var(--background-primary);
+/* 为文件列表添加更好的视觉分隔 */
+.newly-added-files-file {
+	border-bottom: 1px solid var(--background-modifier-border-subtle);
+	margin-bottom: 2px;
+}
+
+/* 为文件图标添加样式 */
+.newly-added-files-icon {
+	margin-right: 6px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-muted);
+}
+
+/* 优化删除按钮样式 */
+.newly-added-files-file-delete {
+	color: var(--text-muted);
+	border-radius: 4px;
+	padding: 2px;
+}
+
+.newly-added-files-file-delete:hover {
+	background-color: var(--background-modifier-error-hover);
+	color: var(--text-error);
+}
+
+/* 搜索框样式 */
+.newly-added-files-search {
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 8px;
+	display: flex;
+	align-items: center;
+}
+
+.newly-added-files-search-input {
+	flex: 1;
+	background-color: var(--background-primary-alt);
 	color: var(--text-normal);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 4px;
-	padding: 4px;
+	padding: 6px 8px 6px 28px;
+	font-size: 0.9em;
+	background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-search"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>');
+	background-repeat: no-repeat;
+	background-position: 8px center;
+	background-size: 14px;
+}
+
+.newly-added-files-search-input:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 1px var(--background-modifier-border);
+}
+
+.newly-added-files-search-clear {
+	margin-left: -24px;
+	color: var(--text-muted);
+	cursor: pointer;
+	display: none;
+	padding: 2px;
+	border-radius: 50%;
+}
+
+.newly-added-files-search-clear:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+/* 文件预览样式 */
+.newly-added-files-preview {
+	position: fixed;
+	z-index: 1000;
+	background-color: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+	padding: 8px;
+	max-width: 300px;
+	max-height: 300px;
+}
+
+.newly-added-files-preview-img {
+	max-width: 100%;
+	max-height: 284px;
+	object-fit: contain;
+}
+
+.newly-added-files-preview-pdf {
+	padding: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: var(--background-secondary);
+	border-radius: 4px;
+	height: 120px;
+	color: var(--text-muted);
+	font-size: 0.9em;
 }

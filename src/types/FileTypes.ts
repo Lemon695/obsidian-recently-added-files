@@ -11,6 +11,7 @@ export interface NewFilesData {
 	showExtension?: boolean;
 	activeFileType: string;
 	enableFileTypeFilter: boolean; //配置项，是否开启筛选项
+	sortOrder: 'newest' | 'oldest' | 'az' | 'za'; //排序选项
 }
 
 export const DEFAULT_DATA: NewFilesData = {
@@ -21,4 +22,5 @@ export const DEFAULT_DATA: NewFilesData = {
 	showExtension: false,
 	activeFileType: 'all',
 	enableFileTypeFilter: false, //默认不开启筛选项
+	sortOrder: 'newest', // 默认按最新时间排序
 };

@@ -15,6 +15,7 @@ import {defaultMaxLength, NewFilesListViewType} from "./constants";
 import {FileTypeFilterSetting} from "./setting/FileTypeFilterSetting";
 import {FileTypeFilterToggleSetting} from "./setting/FileTypeFilterToggleSetting";
 import {FileUtils} from "./utils/FileUtils";
+import {SortOrderSetting} from "./setting/SortOrderSetting";
 
 interface DragManagerInterface {
 	dragFile: (event: DragEvent, file: TFile) => unknown;
@@ -24,12 +25,11 @@ interface DragManagerInterface {
 class NewFilesListView extends ItemView {
 	private readonly plugin: NewFilesPlugin;
 	private readonly data: NewFilesData;
+	private previewTimeout: NodeJS.Timeout | null = null;
+	private currentHoverElement: HTMLElement | null = null;
 
 	constructor(
-		leaf: WorkspaceLeaf,
-		plugin: NewFilesPlugin,
-		data: NewFilesData,
-	) {
+		leaf: WorkspaceLeaf, plugin: NewFilesPlugin, data: NewFilesData,) {
 		super(leaf);
 
 		this.plugin = plugin;
@@ -83,7 +83,11 @@ class NewFilesListView extends ItemView {
 
 		const rootEl = createDiv({cls: 'nav-folder mod-root'});
 
+		// 筛选下拉框
 		this.createFilterDropdown(rootEl);
+
+		// 搜索框
+		this.createSearchBox(rootEl);
 
 		const childrenEl = rootEl.createDiv({cls: 'nav-folder-children'});
 
@@ -93,15 +97,60 @@ class NewFilesListView extends ItemView {
 			? frontMatterApi.getResolverFactory()?.createResolver('explorer')
 			: null;
 
-		const filteredFiles = this.filterFilesByType(this.data.newFiles);
+		// 先过滤文件类型
+		let sortedFiles = this.filterFilesByType(this.data.newFiles);
 
-		filteredFiles.forEach((currentFile) => {
+		// 根据排序设置进行排序
+		switch (this.data.sortOrder) {
+			case 'newest':
+				// 已经按最新排序，无需操作
+				break;
+			case 'oldest':
+				sortedFiles = [...sortedFiles].reverse();
+				break;
+			case 'az':
+				sortedFiles = [...sortedFiles].sort((a, b) =>
+					a.basename.toLowerCase().localeCompare(b.basename.toLowerCase())
+				);
+				break;
+			case 'za':
+				sortedFiles = [...sortedFiles].sort((a, b) =>
+					b.basename.toLowerCase().localeCompare(a.basename.toLowerCase())
+				);
+				break;
+		}
+
+		sortedFiles.forEach((currentFile) => {
 			const navFile = childrenEl.createDiv({
 				cls: 'tree-item nav-file newly-added-files-file',
 			});
 			const navFileTitle = navFile.createDiv({
 				cls: 'tree-item-self is-clickable nav-file-title newly-added-files-title',
 			});
+
+			// 添加文件图标
+			const navFileIcon = navFileTitle.createDiv({
+				cls: 'tree-item-icon newly-added-files-icon'
+			});
+
+			// 根据文件类型设置图标
+			const fileExtension = currentFile.path.split('.').pop()?.toLowerCase();
+			let iconName = 'lucide-file'; // 默认图标
+
+			if (FileUtils.isFileType(fileExtension, 'MARKDOWN')) {
+				iconName = 'lucide-file-text';
+			} else if (FileUtils.isFileType(fileExtension, 'PDF')) {
+				iconName = 'lucide-file-text';
+			} else if (FileUtils.isFileType(fileExtension, 'IMAGE')) {
+				iconName = 'lucide-image';
+			} else if (FileUtils.isFileType(fileExtension, 'VIDEO')) {
+				iconName = 'lucide-video';
+			} else if (FileUtils.isFileType(fileExtension, 'CANVAS')) {
+				iconName = 'lucide-layout-dashboard';
+			}
+
+			setIcon(navFileIcon, iconName);
+
 			const navFileTitleContent = navFileTitle.createDiv({
 				cls: 'tree-item-inner nav-file-title-content newly-added-files-title-content',
 			});
@@ -147,6 +196,40 @@ class NewFilesListView extends ItemView {
 					targetEl: navFile,
 					linktext: currentFile.path,
 				});
+
+				// 记录当前悬停元素
+				this.currentHoverElement = navFileTitle;
+			});
+
+			// 添加文件预览功能
+			navFileTitle.addEventListener('mouseenter', (event) => {
+				// 如果是不支持预览的文件类型，跳过
+				if (!FileUtils.canPreview(fileExtension)) return;
+
+				// 创建预览悬浮框（在 mouseenter 时延迟显示，避免频繁触发）
+				if (!this.previewTimeout) {
+					this.previewTimeout = setTimeout(() => {
+						// 检查鼠标是否仍在元素上
+						if (this.currentHoverElement === navFileTitle) {
+							this.showFilePreview(currentFile, event);
+						}
+					}, 500); // 延迟500毫秒
+				}
+			});
+
+			navFileTitle.addEventListener('mouseleave', () => {
+				// 清除定时器
+				if (this.previewTimeout) {
+					clearTimeout(this.previewTimeout);
+					this.previewTimeout = null;
+				}
+
+				// 更新当前悬停元素
+				this.currentHoverElement = null;
+
+				// 移除预览框
+				const preview = document.querySelector('.newly-added-files-preview');
+				if (preview) preview.remove();
 			});
 
 			navFileTitle.addEventListener('contextmenu', (event: MouseEvent) => {
@@ -221,6 +304,52 @@ class NewFilesListView extends ItemView {
 		this.contentEl.setChildrenInPlace([rootEl]);
 	};
 
+	// 搜索框
+	private createSearchBox(rootEl: HTMLElement): void {
+		const searchContainer = rootEl.createDiv({
+			cls: 'nav-folder-title newly-added-files-search'
+		});
+
+		const searchInput = searchContainer.createEl('input', {
+			cls: 'newly-added-files-search-input',
+			attr: {
+				type: 'text',
+				placeholder: 'Search files...'
+			}
+		});
+
+		// 添加清除按钮
+		const clearButton = searchContainer.createDiv({
+			cls: 'newly-added-files-search-clear'
+		});
+		setIcon(clearButton, 'lucide-x');
+		clearButton.style.display = 'none';
+
+		// 添加搜索事件
+		searchInput.addEventListener('input', (e) => {
+			const value = (e.target as HTMLInputElement).value.toLowerCase();
+			const fileItems = this.contentEl.querySelectorAll('.newly-added-files-file');
+
+			fileItems.forEach((item) => {
+				const title = item.querySelector('.newly-added-files-title-content')?.textContent?.toLowerCase() || '';
+				if (title.includes(value)) {
+					(item as HTMLElement).style.display = '';
+				} else {
+					(item as HTMLElement).style.display = 'none';
+				}
+			});
+
+			clearButton.style.display = value ? '' : 'none';
+		});
+
+		// 清除按钮事件
+		clearButton.addEventListener('click', () => {
+			searchInput.value = '';
+			const event = new Event('input');
+			searchInput.dispatchEvent(event);
+		});
+	}
+
 	private readonly removeFile = async (file: FilePath): Promise<void> => {
 		this.data.newFiles = this.data.newFiles.filter(
 			(currFile) => currFile.path !== file.path,
@@ -255,17 +384,24 @@ class NewFilesListView extends ItemView {
 			cls: 'nav-folder-title newly-added-files-filter'
 		});
 
+		// 添加标签文本
+		filterContainer.createSpan({
+			cls: 'newly-added-files-filter-label',
+			text: 'Filter:'
+		});
+
 		const filterDropdown = filterContainer.createEl('select', {
 			cls: 'dropdown'
 		});
 
 		const options = [
-			{value: 'all', label: 'All files'}, //所有文件
-			{value: 'md', label: 'Markdown'},
-			{value: 'pdf', label: 'PDF'},
-			{value: 'image', label: 'Image'}, //图片
-			{value: 'video', label: 'Video'}, //视频
-			{value: 'other', label: 'Other'} //其他
+			{value: 'all', label: 'All files', icon: 'lucide-files'},
+			{value: 'md', label: 'Markdown', icon: 'lucide-file-text'},
+			{value: 'pdf', label: 'PDF', icon: 'lucide-file-text'},
+			{value: 'image', label: 'Images', icon: 'lucide-image'},
+			{value: 'video', label: 'Videos', icon: 'lucide-video'},
+			{value: 'canvas', label: 'Canvas', icon: 'lucide-layout-dashboard'},
+			{value: 'other', label: 'Other Files', icon: 'lucide-file'}
 		];
 
 		options.forEach(option => {
@@ -304,15 +440,62 @@ class NewFilesListView extends ItemView {
 					return FileUtils.isFileType(extension, 'IMAGE');
 				case 'video':
 					return FileUtils.isFileType(extension, 'VIDEO');
+				case 'canvas':
+					return FileUtils.isFileType(extension, 'CANVAS');
 				case 'other':
 					return !FileUtils.isFileType(extension, 'MARKDOWN') &&
 						!FileUtils.isFileType(extension, 'PDF') &&
 						!FileUtils.isFileType(extension, 'IMAGE') &&
-						!FileUtils.isFileType(extension, 'VIDEO');
+						!FileUtils.isFileType(extension, 'VIDEO') &&
+						!FileUtils.isFileType(extension, 'CANVAS');
 				default:
 					return true;
 			}
 		});
+	}
+
+	private async showFilePreview(file: FilePath, event: MouseEvent): Promise<void> {
+		// 移除可能已经存在的预览
+		const existingPreview = document.querySelector('.newly-added-files-preview');
+		if (existingPreview) existingPreview.remove();
+
+		const tfile = this.app.vault.getFileByPath(file.path);
+		if (!tfile) return;
+
+		const previewEl = document.createElement('div');
+		previewEl.className = 'newly-added-files-preview';
+
+		const rect = (event.target as HTMLElement).getBoundingClientRect();
+		previewEl.style.top = `${rect.bottom + 10}px`;
+		previewEl.style.left = `${rect.left}px`;
+
+		// 根据文件类型创建预览内容
+		const extension = file.path.split('.').pop()?.toLowerCase();
+
+		if (FileUtils.isFileType(extension, 'IMAGE')) {
+			// 图片预览
+			try {
+				const arrayBuffer = await this.app.vault.readBinary(tfile);
+				const blob = new Blob([arrayBuffer]);
+				const url = URL.createObjectURL(blob);
+
+				const img = document.createElement('img');
+				img.src = url;
+				img.className = 'newly-added-files-preview-img';
+				previewEl.appendChild(img);
+
+				// 清理 URL 对象
+				img.onload = () => URL.revokeObjectURL(url);
+			} catch (e) {
+				console.error('预览失败:', e);
+				return;
+			}
+		} else if (FileUtils.isFileType(extension, 'PDF')) {
+			// PDF 预览（只显示封面页）
+			previewEl.innerHTML = `<div class="newly-added-files-preview-pdf">PDF 预览</div>`;
+		}
+
+		document.body.appendChild(previewEl);
 	}
 
 }
@@ -614,6 +797,11 @@ class NewFilesSettingTab extends PluginSettingTab {
 
 		//文件类型筛选设置
 		new FileTypeFilterSetting({
+			containerEl,
+			plugin: this.plugin
+		}).create();
+
+		new SortOrderSetting({
 			containerEl,
 			plugin: this.plugin
 		}).create();

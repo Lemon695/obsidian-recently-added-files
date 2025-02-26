@@ -23,3 +23,5 @@ data.json
 /npminstall-debug.log
 /yarn-error.log
 /package-lock.json
+/build.sh
+/dist/code/*
