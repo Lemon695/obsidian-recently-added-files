@@ -586,12 +586,17 @@ export default class NewFilesPlugin extends Plugin {
 		await this.loadData();
 		await this.pruneLength();
 		await this.pruneOmittedFiles();
-		this.view.redraw();
+		if (this.view) {
+			this.view.redraw();
+		}
 	}
 
 	public readonly pruneOmittedFiles = async (): Promise<void> => {
 		this.data.newFiles = this.data.newFiles.filter(this.shouldAddFile);
 		await this.saveData();
+		if (this.view) {
+			this.view.redraw();
+		}
 	};
 
 	public readonly pruneLength = async (): Promise<void> => {
@@ -605,7 +610,9 @@ export default class NewFilesPlugin extends Plugin {
 		}
 
 		await this.saveData();
-		this.view.redraw();
+		if (this.view) {
+			this.view.redraw();
+		}
 	};
 
 	public readonly shouldAddFile = (file: FilePath): boolean => {
@@ -669,7 +676,9 @@ export default class NewFilesPlugin extends Plugin {
 			entry.path = file.path;
 			entry.basename = FileNameUtils.trimExtension(file.name);
 			await this.saveData();
-			this.view.redraw();
+			if (this.view) {
+				this.view.redraw();
+			}
 		}
 	};
 
@@ -687,7 +696,9 @@ export default class NewFilesPlugin extends Plugin {
 
 		if (beforeLen !== this.data.newFiles.length) {
 			await this.saveData();
-			this.view.redraw();
+			if (this.view) {
+				this.view.redraw();
+			}
 		}
 	};
 
@@ -712,7 +723,9 @@ export default class NewFilesPlugin extends Plugin {
 
 			await this.saveData();
 			await this.pruneLength();
-			this.view.redraw();
+			if (this.view) {
+				this.view.redraw();
+			}
 		}
 	};
 }
