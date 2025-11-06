@@ -38,16 +38,6 @@
 	cursor: var(--cursor);
 }
 
-.newly-added-files-donation {
-	width: 70%;
-	margin: 0 auto;
-	text-align: center;
-}
-
-.newly-added-files-donate-button {
-	margin: 10px;
-}
-
 .newly-added-files-filter-label {
 	font-size: 0.8em;
 	color: var(--text-muted);

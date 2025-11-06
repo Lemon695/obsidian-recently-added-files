@@ -11,15 +11,20 @@ import {ListLengthSetting} from "./setting/ListLengthSettingParams";
 import {ShowExtensionSetting} from "./setting/ShowExtensionSetting";
 import {FileNameUtils} from './utils/FileNameUtils';
 import {MD5Utils, FileRenameUtils} from './utils/RenameFileToMD5';
-import {defaultMaxLength, NewFilesListViewType} from "./constants";
+import {defaultMaxLength, FILE_EXTENSIONS, NewFilesListViewType} from "./constants";
 import {FileTypeFilterSetting} from "./setting/FileTypeFilterSetting";
 import {FileTypeFilterToggleSetting} from "./setting/FileTypeFilterToggleSetting";
 import {FileUtils} from "./utils/FileUtils";
 import {SortOrderSetting} from "./setting/SortOrderSetting";
+import {t} from "./i18n/locale";
 
 interface DragManagerInterface {
 	dragFile: (event: DragEvent, file: TFile) => unknown;
 	onDragStart: (event: DragEvent, dragData: unknown) => void;
+}
+
+interface AppWithDragManager extends App {
+	dragManager: DragManagerInterface;
 }
 
 class NewFilesListView extends ItemView {
@@ -27,6 +32,7 @@ class NewFilesListView extends ItemView {
 	private readonly data: NewFilesData;
 	private previewTimeout: NodeJS.Timeout | null = null;
 	private currentHoverElement: HTMLElement | null = null;
+	private searchDebounceTimer: NodeJS.Timeout | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf, plugin: NewFilesPlugin, data: NewFilesData,) {
@@ -56,7 +62,7 @@ class NewFilesListView extends ItemView {
 		menu
 			.addItem((item) => {
 				item
-					.setTitle('Clear list')
+					.setTitle(t('clearList'))
 					.setIcon(ICON_NAME)
 					.onClick(async () => {
 						this.data.newFiles = [];
@@ -81,7 +87,13 @@ class NewFilesListView extends ItemView {
 	public readonly redraw = (): void => {
 		const openFile = this.app.workspace.getActiveFile();
 
-		const rootEl = createDiv({cls: 'nav-folder mod-root'});
+		let rootEl = this.contentEl.querySelector('.nav-folder.mod-root') as HTMLElement;
+		if (!rootEl) {
+			rootEl = createDiv({cls: 'nav-folder mod-root'});
+			this.contentEl.setChildrenInPlace([rootEl]);
+		} else {
+			rootEl.empty();
+		}
 
 		// 筛选下拉框
 		this.createFilterDropdown(rootEl);
@@ -106,18 +118,16 @@ class NewFilesListView extends ItemView {
 				// 已经按最新排序，无需操作
 				break;
 			case 'oldest':
-				sortedFiles = [...sortedFiles].reverse();
+				sortedFiles = sortedFiles.slice().reverse();
 				break;
 			case 'az':
-				sortedFiles = [...sortedFiles].sort((a, b) =>
-					a.basename.toLowerCase().localeCompare(b.basename.toLowerCase())
-				);
+			case 'za': {
+				const compareFn = this.data.sortOrder === 'az'
+					? (a: FilePath, b: FilePath) => a.basename.toLowerCase().localeCompare(b.basename.toLowerCase())
+					: (a: FilePath, b: FilePath) => b.basename.toLowerCase().localeCompare(a.basename.toLowerCase());
+				sortedFiles = sortedFiles.slice().sort(compareFn);
 				break;
-			case 'za':
-				sortedFiles = [...sortedFiles].sort((a, b) =>
-					b.basename.toLowerCase().localeCompare(a.basename.toLowerCase())
-				);
-				break;
+			}
 		}
 
 		sortedFiles.forEach((currentFile) => {
@@ -181,7 +191,7 @@ class NewFilesListView extends ItemView {
 					return;
 				}
 
-				const dragManager = (this.app as unknown as { dragManager: DragManagerInterface }).dragManager;
+				const dragManager = (this.app as AppWithDragManager).dragManager;
 				const dragData = dragManager.dragFile(event, file);
 				dragManager.onDragStart(event, dragData);
 			});
@@ -239,7 +249,7 @@ class NewFilesListView extends ItemView {
 				menu.addItem((item) =>
 					item
 						.setSection('action')
-						.setTitle('Open in new tab')
+						.setTitle(t('openInNewTab'))
 						.setIcon('file-plus')
 						.onClick(() => {
 							this.focusFile(currentFile, 'tab');
@@ -250,11 +260,21 @@ class NewFilesListView extends ItemView {
 				menu.addItem((item) =>
 					item
 						.setSection('action')
-						.setTitle('Rename with MD5')
+						.setTitle(t('renameWithMD5'))
 						.setIcon('file-signature')
 						.onClick(async () => {
-							const file = this.app.vault.getFileByPath(currentFile.path);
-							await FileRenameUtils.renameWithMD5(this.app, file);
+							try {
+								const file = this.app.vault.getFileByPath(currentFile.path);
+								if (!file) {
+									new Notice('File not found');
+									return;
+								}
+								await FileRenameUtils.renameWithMD5(this.app, file);
+								new Notice('File renamed successfully');
+							} catch (error) {
+								console.error('Failed to rename file:', error);
+								new Notice('Failed to rename file: ' + error.message);
+							}
 						})
 				);
 
@@ -275,8 +295,7 @@ class NewFilesListView extends ItemView {
 			navFileTitle.addEventListener('click', (event: MouseEvent) => {
 				if (!currentFile) return;
 
-				const newLeaf = Keymap.isModEvent(event)
-				// 添加条件运算符
+				const newLeaf = Keymap.isModEvent(event);
 				this.focusFile(currentFile, newLeaf ? 'tab' : false);
 			});
 
@@ -314,7 +333,7 @@ class NewFilesListView extends ItemView {
 			cls: 'newly-added-files-search-input',
 			attr: {
 				type: 'text',
-				placeholder: 'Search files...'
+				placeholder: t('searchPlaceholder')
 			}
 		});
 
@@ -328,18 +347,25 @@ class NewFilesListView extends ItemView {
 		// 添加搜索事件
 		searchInput.addEventListener('input', (e) => {
 			const value = (e.target as HTMLInputElement).value.toLowerCase();
-			const fileItems = this.contentEl.querySelectorAll('.newly-added-files-file');
 
-			fileItems.forEach((item) => {
-				const title = item.querySelector('.newly-added-files-title-content')?.textContent?.toLowerCase() || '';
-				if (title.includes(value)) {
-					(item as HTMLElement).style.display = '';
-				} else {
-					(item as HTMLElement).style.display = 'none';
-				}
-			});
+			// 清除之前的定时器
+			if (this.searchDebounceTimer) {
+				clearTimeout(this.searchDebounceTimer);
+			}
 
-			clearButton.style.display = value ? '' : 'none';
+			// 300ms 防抖
+			this.searchDebounceTimer = setTimeout(() => {
+				const fileItems = this.contentEl.querySelectorAll('.newly-added-files-file');
+				fileItems.forEach((item) => {
+					const title = item.querySelector('.newly-added-files-title-content')?.textContent?.toLowerCase() || '';
+					if (title.includes(value)) {
+						(item as HTMLElement).style.display = '';
+					} else {
+						(item as HTMLElement).style.display = 'none';
+					}
+				});
+				clearButton.style.display = value ? '' : 'none';
+			}, 300);
 		});
 
 		// 清除按钮事件
@@ -423,34 +449,29 @@ class NewFilesListView extends ItemView {
 	}
 
 	private filterFilesByType(files: FilePath[]): FilePath[] {
-		// 如果未启用筛选功能，返回所有文件
 		if (!this.data.enableFileTypeFilter || this.data.activeFileType === 'all') {
 			return files;
 		}
 
+		const typeMap: Record<string, keyof typeof FILE_EXTENSIONS> = {
+			'md': 'MARKDOWN',
+			'pdf': 'PDF',
+			'image': 'IMAGE',
+			'video': 'VIDEO',
+			'canvas': 'CANVAS'
+		};
+
 		return files.filter(file => {
 			const extension = file.path.split('.').pop()?.toLowerCase();
 
-			switch (this.data.activeFileType) {
-				case 'md':
-					return FileUtils.isFileType(extension, 'MARKDOWN');
-				case 'pdf':
-					return FileUtils.isFileType(extension, 'PDF');
-				case 'image':
-					return FileUtils.isFileType(extension, 'IMAGE');
-				case 'video':
-					return FileUtils.isFileType(extension, 'VIDEO');
-				case 'canvas':
-					return FileUtils.isFileType(extension, 'CANVAS');
-				case 'other':
-					return !FileUtils.isFileType(extension, 'MARKDOWN') &&
-						!FileUtils.isFileType(extension, 'PDF') &&
-						!FileUtils.isFileType(extension, 'IMAGE') &&
-						!FileUtils.isFileType(extension, 'VIDEO') &&
-						!FileUtils.isFileType(extension, 'CANVAS');
-				default:
-					return true;
+			if (this.data.activeFileType === 'other') {
+				return Object.values(typeMap).every(
+					type => !FileUtils.isFileType(extension, type)
+				);
 			}
+
+			const targetType = typeMap[this.data.activeFileType];
+			return targetType ? FileUtils.isFileType(extension, targetType) : true;
 		});
 	}
 
@@ -486,13 +507,17 @@ class NewFilesListView extends ItemView {
 
 				// 清理 URL 对象
 				img.onload = () => URL.revokeObjectURL(url);
+				img.onerror = () => {
+					URL.revokeObjectURL(url);
+					console.error('Failed to load image preview');
+				};
 			} catch (e) {
-				console.error('预览失败:', e);
+				console.error(t('previewError'), e);
 				return;
 			}
 		} else if (FileUtils.isFileType(extension, 'PDF')) {
 			// PDF 预览（只显示封面页）
-			previewEl.innerHTML = `<div class="newly-added-files-preview-pdf">PDF 预览</div>`;
+			previewEl.innerHTML = `<div class="newly-added-files-preview-pdf">${t('pdfPreview')}</div>`;
 		}
 
 		document.body.appendChild(previewEl);
