@@ -1,5 +1,6 @@
 import NewFilesPlugin from "../main";
 import {Setting} from "obsidian";
+import {t} from "../i18n/locale";
 
 export class FileTypeFilterSetting {
 	private containerEl: HTMLElement;
@@ -12,17 +13,17 @@ export class FileTypeFilterSetting {
 
 	create(): void {
 		new Setting(this.containerEl)
-			.setName('Default file type filter')
-			.setDesc('Select the default file type to filter in the list')
+			.setName(t('settingDefaultFilter'))
+			.setDesc(t('settingDefaultFilterDesc'))
 			.addDropdown((dropdown) => {
 				dropdown
-					.addOption('all', 'All files')
-					.addOption('md', 'Markdown')
-					.addOption('pdf', 'PDF')
-					.addOption('image', 'Images')
-					.addOption('video', 'Videos')
-					.addOption('canvas', 'Canvas')
-					.addOption('other', 'Other Files')
+					.addOption('all', t('allFiles'))
+					.addOption('md', t('markdown'))
+					.addOption('pdf', t('pdf'))
+					.addOption('image', t('images'))
+					.addOption('video', t('videos'))
+					.addOption('canvas', t('canvas'))
+					.addOption('other', t('otherFiles'))
 					.setValue(this.plugin.data.activeFileType)
 					.onChange(async (value) => {
 						this.plugin.data.activeFileType = value;

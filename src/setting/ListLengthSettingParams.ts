@@ -1,5 +1,6 @@
 import {App, Notice, Plugin, Setting} from 'obsidian';
 import NewFilesPlugin from '../main';
+import {t} from "../i18n/locale";
 
 export interface ListLengthSettingParams {
 	containerEl: HTMLElement;
@@ -20,8 +21,8 @@ export class ListLengthSetting {
 
 	public create(): void {
 		new Setting(this.containerEl)
-			.setName('List length')
-			.setDesc('Maximum number of filenames to keep in the list.')
+			.setName(t('settingListLength'))
+			.setDesc(t('settingListLengthDesc'))
 			.addText((text) => {
 				// Set input type to number
 				text.inputEl.setAttr('type', 'number');
@@ -39,7 +40,7 @@ export class ListLengthSetting {
 	private handleChange(value: string): void {
 		const parsed = parseInt(value, 10);
 		if (!Number.isNaN(parsed) && parsed <= 0) {
-			new Notice('List length must be a positive integer');
+			new Notice(t('settingListLengthError'));
 			return;
 		}
 		this.plugin.data.maxLength = parsed;

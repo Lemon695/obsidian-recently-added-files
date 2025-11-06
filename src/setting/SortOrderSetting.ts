@@ -1,5 +1,6 @@
 import NewFilesPlugin from "../main";
 import {Setting} from "obsidian";
+import {t} from "../i18n/locale";
 
 export class SortOrderSetting {
 	private containerEl: HTMLElement;
@@ -12,14 +13,14 @@ export class SortOrderSetting {
 
 	create(): void {
 		new Setting(this.containerEl)
-			.setName('File Sort Order')
-			.setDesc('Choose how files are sorted in the list')
+			.setName(t('settingSortOrder'))
+			.setDesc(t('settingSortOrderDesc'))
 			.addDropdown((dropdown) => {
 				dropdown
-					.addOption('newest', 'Newest first')
-					.addOption('oldest', 'Oldest first')
-					.addOption('az', 'By name A-Z')
-					.addOption('za', 'By name Z-A')
+					.addOption('newest', t('sortNewest'))
+					.addOption('oldest', t('sortOldest'))
+					.addOption('az', t('sortAZ'))
+					.addOption('za', t('sortZA'))
 					.setValue(this.plugin.data.sortOrder)
 					.onChange(async (value: 'newest' | 'oldest' | 'az' | 'za') => {
 						this.plugin.data.sortOrder = value;

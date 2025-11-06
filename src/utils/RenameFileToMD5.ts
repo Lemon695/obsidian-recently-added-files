@@ -1,5 +1,6 @@
 import * as crypto from 'crypto';
 import {TFile, Notice} from 'obsidian';
+import {t} from "../i18n/locale";
 
 export class MD5Utils {
 	static async generateMD5(app: any, file: TFile): Promise<string> {
@@ -16,7 +17,7 @@ export class FileRenameUtils {
 	static async renameWithMD5(app: any, file: TFile | null): Promise<void> {
 		// 增加空值检查
 		if (!file) {
-			new Notice('Valid file not found.');
+			new Notice(t('validFileNotFound'));
 			return;
 		}
 
@@ -31,9 +32,9 @@ export class FileRenameUtils {
 
 		try {
 			await app.fileManager.renameFile(file, newPath);
-			new Notice(`The file has been renamed to ${newName}`);
+			new Notice(t('fileRenamedTo', {name: newName}));
 		} catch (error) {
-			new Notice(`An error occurred while renaming the file: ${error}`);
+			new Notice(t('renameError', {error: String(error)}));
 		}
 	}
 }

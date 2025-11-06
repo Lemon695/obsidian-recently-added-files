@@ -51,7 +51,7 @@ class NewFilesListView extends ItemView {
 	}
 
 	public getDisplayText(): string {
-		return 'Recently Added Files';
+		return t('viewTitle');
 	}
 
 	public getIcon(): string {
@@ -534,7 +534,7 @@ export default class NewFilesPlugin extends Plugin {
 		console.log('New Files: Loading plugin v' + this.manifest.version);
 
 		// 调试语言设置
-		debugLocale();
+		//debugLocale();
 
 		await this.loadData();
 
@@ -547,7 +547,7 @@ export default class NewFilesPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'files-list',
-			name: 'Open',
+			name: t('commandOpen'),
 			callback: async () => {
 				let leaf: WorkspaceLeaf | null;
 				[leaf] = this.app.workspace.getLeavesOfType(
@@ -567,7 +567,7 @@ export default class NewFilesPlugin extends Plugin {
 		this.registerHoverLinkSource(
 			NewFilesListViewType,
 			{
-				display: 'Recently Added Files',
+				display: t('viewTitle'),
 				defaultMod: true,
 			}
 		);
@@ -775,12 +775,12 @@ class NewFilesSettingTab extends PluginSettingTab {
 		link.href =
 			'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#writing_a_regular_expression_pattern';
 		link.text = 'MDN - Regular expressions';
-		patternFragment.append('RegExp patterns to ignore. One pattern per line. See ');
+		patternFragment.append(t('settingOmittedPathsDesc'));
 		patternFragment.append(link);
-		patternFragment.append(' for help.');
+		patternFragment.append(t('settingOmittedPathsLink'));
 
 		new Setting(containerEl)
-			.setName('Omitted pathname patterns')
+			.setName(t('settingOmittedPaths'))
 			.setDesc(patternFragment)
 			.addTextArea((textArea) => {
 				textArea.inputEl.setAttr('rows', 6);
@@ -797,11 +797,10 @@ class NewFilesSettingTab extends PluginSettingTab {
 
 
 		const tagFragment = document.createDocumentFragment();
-		tagFragment.append('Frontmatter tags patterns to ignore. One pattern' +
-			' per line');
+		tagFragment.append(t('settingOmittedTagsDesc'));
 
 		new Setting(containerEl)
-			.setName('Omitted frontmatter tags')
+			.setName(t('settingOmittedTags'))
 			.setDesc(tagFragment)
 			.addTextArea((textArea) => {
 				textArea.inputEl.setAttr('rows', 6);

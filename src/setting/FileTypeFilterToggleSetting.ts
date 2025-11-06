@@ -1,5 +1,6 @@
 import NewFilesPlugin from "../main";
 import {Setting} from "obsidian";
+import {t} from "../i18n/locale";
 
 export class FileTypeFilterToggleSetting {
 	private containerEl: HTMLElement;
@@ -12,8 +13,8 @@ export class FileTypeFilterToggleSetting {
 
 	create(): void {
 		new Setting(this.containerEl)
-			.setName('Enable File Type Filter') //启用文件类型筛选
-			.setDesc('When enabled, you can filter and display recent files by file type.') //开启后可以按文件类型筛选显示最近文件
+			.setName(t('settingEnableFilter')) //启用文件类型筛选
+			.setDesc(t('settingEnableFilterDesc')) //开启后可以按文件类型筛选显示最近文件
 			.addToggle((toggle) => {
 				toggle
 					.setValue(this.plugin.data.enableFileTypeFilter)

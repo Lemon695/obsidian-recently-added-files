@@ -1,5 +1,6 @@
 import {Setting} from 'obsidian';
 import NewFilesPlugin from '../main';
+import {t} from "../i18n/locale";
 
 interface ShowExtensionSettingParams {
 	containerEl: HTMLElement;
@@ -24,8 +25,8 @@ export class ShowExtensionSetting {
 
 	create(): void {
 		new Setting(this.containerEl)
-			.setName('Show File Extensions')
-			.setDesc('Enabling this option will display file extensions in the list')
+			.setName(t('settingShowExtension'))
+			.setDesc(t('settingShowExtensionDesc'))
 			.addToggle((toggle) => {
 				toggle
 					.setValue(this.plugin.data.showExtension ?? this.defaultShowExtension)
