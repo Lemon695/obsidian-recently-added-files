@@ -6,26 +6,31 @@
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-		"eslint": "eslint . --ext .ts,.tsx --fix"
+		"eslint": "eslint . --ext .ts,.tsx --fix",
+		"lint": "eslint .",
+		"lint:fix": "eslint . --fix"
 	},
 	"keywords": [],
 	"author": "Lemon695",
 	"license": "GPL-3.0",
 	"devDependencies": {
 		"@types/node": "20.11.6",
-		"@typescript-eslint/eslint-plugin": "6.19.1",
-		"@typescript-eslint/parser": "6.19.1",
+		"@typescript-eslint/eslint-plugin": "8.46.3",
+		"@typescript-eslint/parser": "8.46.3",
 		"builtin-modules": "3.3.0",
 		"esbuild": "0.25.0",
-		"eslint": "8.56.0",
+		"eslint": "^9.39.1",
 		"eslint-plugin-babel": "5.3.1",
-		"eslint-plugin-import": "2.29.1",
+		"eslint-plugin-import": "^2.32.0",
 		"eslint-plugin-jsdoc": "48.0.2",
+		"eslint-plugin-obsidianmd": "^0.1.8",
 		"eslint-plugin-prefer-arrow": "1.2.3",
 		"eslint-plugin-simple-import-sort": "10.0.0",
 		"front-matter-plugin-api-provider": "0.1.4-alpha",
+		"globals": "^15.0.0",
 		"obsidian": "https://github.com/obsidianmd/obsidian-api/archive/23947b58d372ea02225324308e31d36b4aa95869.tar.gz",
 		"tslib": "2.6.2",
-		"typescript": "5.3.3"
+		"typescript": "5.3.3",
+		"typescript-eslint": "^8.46.3"
 	}
 }
