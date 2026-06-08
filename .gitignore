@@ -26,3 +26,10 @@ data.json
 /build.sh
 /dist/code/*
 /lint-result.txt
+
+# Claude Code — 个人本地配置，不提交（团队共享配置在 .claude/settings.json）
+.claude/settings.local.json
+
+# Claude 本地覆盖文档
+CLAUDE.local.md
+/manifest.json.bak

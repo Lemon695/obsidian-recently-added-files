@@ -1,3 +1,5 @@
+/* eslint-env node */
+/* global process */
 import { readFileSync, writeFileSync } from "fs";
 
 const targetVersion = process.env.npm_package_version;

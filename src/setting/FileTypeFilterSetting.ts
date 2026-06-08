@@ -1,6 +1,7 @@
 import NewFilesPlugin from "../main";
 import {Setting} from "obsidian";
 import {t} from "../i18n/locale";
+import {recentFilesSettingsI18n} from '../i18n/modules/recent-files/settings';
 
 export class FileTypeFilterSetting {
 	private containerEl: HTMLElement;
@@ -12,23 +13,24 @@ export class FileTypeFilterSetting {
 	}
 
 	create(): void {
+		const i18n = t(recentFilesSettingsI18n);
 		new Setting(this.containerEl)
-			.setName(t('settingDefaultFilter'))
-			.setDesc(t('settingDefaultFilterDesc'))
+			.setName(i18n.defaultFilterName)
+			.setDesc(i18n.defaultFilterDesc)
 			.addDropdown((dropdown) => {
 				dropdown
-					.addOption('all', t('allFiles'))
-					.addOption('md', t('markdown'))
-					.addOption('pdf', t('pdf'))
-					.addOption('image', t('images'))
-					.addOption('video', t('videos'))
-					.addOption('canvas', t('canvas'))
-					.addOption('other', t('otherFiles'))
+					.addOption('all', i18n.allFiles)
+					.addOption('md', i18n.markdown)
+					.addOption('pdf', i18n.pdf)
+					.addOption('image', i18n.images)
+					.addOption('video', i18n.videos)
+					.addOption('canvas', i18n.canvas)
+					.addOption('other', i18n.otherFiles)
 					.setValue(this.plugin.data.activeFileType)
 					.onChange(async (value) => {
 						this.plugin.data.activeFileType = value;
 						await this.plugin.saveData();
-						this.plugin.view.redraw();
+						this.plugin.view?.redraw();
 					});
 			});
 	}

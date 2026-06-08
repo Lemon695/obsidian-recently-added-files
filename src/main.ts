@@ -1,855 +1,96 @@
+import {Plugin} from 'obsidian';
+import {ModuleManager} from './core/module-manager';
 import {
-	addIcon, App, ItemView, Keymap, Menu, Notice, PaneType, Plugin,
-	PluginSettingTab, setIcon, setTooltip, Setting, TAbstractFile, TFile,
-	WorkspaceLeaf,
-} from 'obsidian';
+	DEFAULT_SETTINGS,
+	needsSettingsPersistence,
+	normalizeSettings,
+	PluginSettings,
+} from './core/types';
+import {RecentlyAddedFilesSettingsTab} from './core/settings-tab';
+import {RecentFilesModule, NewFilesListView} from './modules/recent-files';
+import {NewFilesData} from './types/FileTypes';
+import type {
+	RecentFilesListAdapter,
+	RecentFilesPreviewAdapter,
+	RecentFilesRenameAdapter,
+} from './modules/recent-files/adapters';
+import {RecentFilesFilterModule} from './modules/recent-files/feature-filter';
+import {RecentFilesPreviewModule} from './modules/recent-files/feature-preview';
+import {RecentFilesRenameModule} from './modules/recent-files/feature-rename';
 
-import {getApiSafe} from 'front-matter-plugin-api-provider';
-import {FilePath, NewFilesData, DEFAULT_DATA} from './types/FileTypes';
-import {ICON_NAME, ICON_SVG} from "./view/icon";
-import {ListLengthSetting} from "./setting/ListLengthSettingParams";
-import {ShowExtensionSetting} from "./setting/ShowExtensionSetting";
-import {FileNameUtils} from './utils/FileNameUtils';
-import {MD5Utils, FileRenameUtils} from './utils/RenameFileToMD5';
-import {defaultMaxLength, FILE_EXTENSIONS, NewFilesListViewType} from "./constants";
-import {FileTypeFilterSetting} from "./setting/FileTypeFilterSetting";
-import {FileTypeFilterToggleSetting} from "./setting/FileTypeFilterToggleSetting";
-import {FileUtils} from "./utils/FileUtils";
-import {SortOrderSetting} from "./setting/SortOrderSetting";
-import {t, debugLocale} from './i18n/locale';
+export default class RecentlyAddedFilesPlugin extends Plugin {
+	public settings: PluginSettings = DEFAULT_SETTINGS;
+	public moduleManager!: ModuleManager;
 
-interface DragManagerInterface {
-	dragFile: (event: DragEvent, file: TFile) => unknown;
-	onDragStart: (event: DragEvent, dragData: unknown) => void;
-}
-
-interface AppWithDragManager extends App {
-	dragManager: DragManagerInterface;
-}
-
-class NewFilesListView extends ItemView {
-	private readonly plugin: NewFilesPlugin;
-	private readonly data: NewFilesData;
-	private previewTimeout: NodeJS.Timeout | null = null;
-	private currentHoverElement: HTMLElement | null = null;
-	private searchDebounceTimer: NodeJS.Timeout | null = null;
-
-	constructor(
-		leaf: WorkspaceLeaf, plugin: NewFilesPlugin, data: NewFilesData,) {
-		super(leaf);
-
-		this.plugin = plugin;
-		this.data = data;
-	}
-
-	public async onOpen(): Promise<void> {
-		this.redraw();
-	}
-
-	public getViewType(): string {
-		return NewFilesListViewType;
-	}
-
-	public getDisplayText(): string {
-		return t('viewTitle');
-	}
-
-	public getIcon(): string {
-		return ICON_NAME;
-	}
-
-	public onPaneMenu(menu: Menu): void {
-		menu
-			.addItem((item) => {
-				item
-					.setTitle(t('clearList'))
-					.setIcon(ICON_NAME)
-					.onClick(async () => {
-						this.data.newFiles = [];
-						await this.plugin.saveData();
-						this.redraw();
-					});
-			})
-			.addItem((item) => {
-				item
-					.setTitle(t('close'))
-					.setIcon('cross')
-					.onClick(() => {
-						this.app.workspace.detachLeavesOfType(NewFilesListViewType);
-					});
-			});
-	}
-
-	public load(): void {
-		super.load();
-	}
-
-	public readonly redraw = (): void => {
-		const openFile = this.app.workspace.getActiveFile();
-
-		let rootEl = this.contentEl.querySelector('.nav-folder.mod-root') as HTMLElement;
-		if (!rootEl) {
-			rootEl = createDiv({cls: 'nav-folder mod-root'});
-			this.contentEl.setChildrenInPlace([rootEl]);
-		} else {
-			rootEl.empty();
-		}
-
-		// 筛选下拉框
-		this.createFilterDropdown(rootEl);
-
-		// 搜索框
-		this.createSearchBox(rootEl);
-
-		const childrenEl = rootEl.createDiv({cls: 'nav-folder-children'});
-
-		const frontMatterApi = getApiSafe(this.app);
-		const frontMatterEnabled = frontMatterApi && frontMatterApi.getEnabledFeatures().contains('explorer');
-		const frontMatterResolver = frontMatterEnabled
-			? frontMatterApi.getResolverFactory()?.createResolver('explorer')
-			: null;
-
-		// 先过滤文件类型
-		let sortedFiles = this.filterFilesByType(this.data.newFiles);
-
-		// 根据排序设置进行排序
-		switch (this.data.sortOrder) {
-			case 'newest':
-				// 已经按最新排序，无需操作
-				break;
-			case 'oldest':
-				sortedFiles = sortedFiles.slice().reverse();
-				break;
-			case 'az':
-			case 'za': {
-				const compareFn = this.data.sortOrder === 'az'
-					? (a: FilePath, b: FilePath) => a.basename.toLowerCase().localeCompare(b.basename.toLowerCase())
-					: (a: FilePath, b: FilePath) => b.basename.toLowerCase().localeCompare(a.basename.toLowerCase());
-				sortedFiles = sortedFiles.slice().sort(compareFn);
-				break;
-			}
-		}
-
-		sortedFiles.forEach((currentFile) => {
-			const navFile = childrenEl.createDiv({
-				cls: 'tree-item nav-file newly-added-files-file',
-			});
-			const navFileTitle = navFile.createDiv({
-				cls: 'tree-item-self is-clickable nav-file-title newly-added-files-title',
-			});
-
-			// 添加文件图标
-			const navFileIcon = navFileTitle.createDiv({
-				cls: 'tree-item-icon newly-added-files-icon'
-			});
-
-			// 根据文件类型设置图标
-			const fileExtension = currentFile.path.split('.').pop()?.toLowerCase();
-			let iconName = 'lucide-file'; // 默认图标
-
-			if (FileUtils.isFileType(fileExtension, 'MARKDOWN')) {
-				iconName = 'lucide-file-text';
-			} else if (FileUtils.isFileType(fileExtension, 'PDF')) {
-				iconName = 'lucide-file-text';
-			} else if (FileUtils.isFileType(fileExtension, 'IMAGE')) {
-				iconName = 'lucide-image';
-			} else if (FileUtils.isFileType(fileExtension, 'VIDEO')) {
-				iconName = 'lucide-video';
-			} else if (FileUtils.isFileType(fileExtension, 'CANVAS')) {
-				iconName = 'lucide-layout-dashboard';
-			}
-
-			setIcon(navFileIcon, iconName);
-
-			const navFileTitleContent = navFileTitle.createDiv({
-				cls: 'tree-item-inner nav-file-title-content newly-added-files-title-content',
-			});
-
-			//Show File Extensions
-			const title = frontMatterResolver
-				? frontMatterResolver.resolve(currentFile.path) ??
-				FileNameUtils.getDisplayName(currentFile, this.data.showExtension ?? false)
-				: FileNameUtils.getDisplayName(currentFile, this.data.showExtension ?? false);
-			navFileTitleContent.setText(title);
-
-			setTooltip(navFile, currentFile.path);
-
-			if (openFile && currentFile.path === openFile.path) {
-				navFileTitle.addClass('is-active');
-			}
-
-			navFileTitle.setAttr('draggable', 'true');
-			navFileTitle.addEventListener('dragstart', (event: DragEvent) => {
-				if (!currentFile?.path) return;
-
-				const file = this.app.metadataCache.getFirstLinkpathDest(
-					currentFile.path,
-					'',
-				);
-
-				if (!file) {
-					return;
-				}
-
-				const dragManager = (this.app as AppWithDragManager).dragManager;
-				const dragData = dragManager.dragFile(event, file);
-				dragManager.onDragStart(event, dragData);
-			});
-
-			navFileTitle.addEventListener('mouseover', (event: MouseEvent) => {
-				if (!currentFile?.path) return;
-
-				this.app.workspace.trigger('hover-link', {
-					event,
-					source: NewFilesListViewType,
-					hoverParent: rootEl,
-					targetEl: navFile,
-					linktext: currentFile.path,
-				});
-
-				// 记录当前悬停元素
-				this.currentHoverElement = navFileTitle;
-			});
-
-			// 添加文件预览功能
-			navFileTitle.addEventListener('mouseenter', (event) => {
-				// 如果是不支持预览的文件类型，跳过
-				if (!FileUtils.canPreview(fileExtension)) return;
-
-				// 创建预览悬浮框（在 mouseenter 时延迟显示，避免频繁触发）
-				if (!this.previewTimeout) {
-					this.previewTimeout = setTimeout(() => {
-						// 检查鼠标是否仍在元素上
-						if (this.currentHoverElement === navFileTitle) {
-							this.showFilePreview(currentFile, event);
-						}
-					}, 500); // 延迟500毫秒
-				}
-			});
-
-			navFileTitle.addEventListener('mouseleave', () => {
-				// 清除定时器
-				if (this.previewTimeout) {
-					clearTimeout(this.previewTimeout);
-					this.previewTimeout = null;
-				}
-
-				// 更新当前悬停元素
-				this.currentHoverElement = null;
-
-				// 移除预览框
-				const preview = document.querySelector('.newly-added-files-preview');
-				if (preview) preview.remove();
-			});
-
-			navFileTitle.addEventListener('contextmenu', (event: MouseEvent) => {
-				if (!currentFile?.path) return;
-
-				const menu = new Menu();
-				menu.addItem((item) =>
-					item
-						.setSection('action')
-						.setTitle(t('openInNewTab'))
-						.setIcon('file-plus')
-						.onClick(() => {
-							this.focusFile(currentFile, 'tab');
-						})
-				);
-
-				// 添加MD5重命名文件选项
-				menu.addItem((item) =>
-					item
-						.setSection('action')
-						.setTitle(t('renameWithMD5'))
-						.setIcon('file-signature')
-						.onClick(async () => {
-							try {
-								const file = this.app.vault.getFileByPath(currentFile.path);
-								if (!file) {
-									new Notice(t('fileNotFound'));
-									return;
-								}
-								await FileRenameUtils.renameWithMD5(this.app, file);
-								new Notice(t('fileRenamed'));
-							} catch (error) {
-								console.error(t('renameFailed'), error);
-								new Notice(t('renameFailed') + ': ' + error.message);
-							}
-						})
-				);
-
-				const file = this.app.vault.getAbstractFileByPath(currentFile?.path);
-				if (!file) {
-					return;
-				}
-
-				this.app.workspace.trigger(
-					'file-menu',
-					menu,
-					file,
-					'link-context-menu',
-				);
-				menu.showAtPosition({x: event.clientX, y: event.clientY});
-			});
-
-			navFileTitle.addEventListener('click', (event: MouseEvent) => {
-				if (!currentFile) return;
-
-				const newLeaf = Keymap.isModEvent(event);
-				this.focusFile(currentFile, newLeaf ? 'tab' : false);
-			});
-
-			navFileTitleContent.addEventListener('mousedown', (event: MouseEvent) => {
-				if (!currentFile) return;
-
-				if (event.button === 1) {
-					event.preventDefault();
-					this.focusFile(currentFile, 'tab');
-				}
-			});
-
-			const navFileDelete = navFileTitle.createDiv({
-				cls: 'newly-added-files-file-delete menu-item-icon',
-			});
-			setIcon(navFileDelete, 'lucide-x');
-			navFileDelete.addEventListener('click', async (event) => {
-				event.stopPropagation();
-
-				await this.removeFile(currentFile);
-				this.redraw();
-			});
-		});
-
-		this.contentEl.setChildrenInPlace([rootEl]);
+	// Compatibility fields for existing setting helper classes.
+	public view: NewFilesListView | null = null;
+	private recentFilesModule!: RecentFilesModule;
+	public readonly recentFilesAdapters: {
+		list: RecentFilesListAdapter | null;
+		preview: RecentFilesPreviewAdapter | null;
+		rename: RecentFilesRenameAdapter | null;
+	} = {
+		list: null,
+		preview: null,
+		rename: null,
 	};
 
-	// 搜索框
-	private createSearchBox(rootEl: HTMLElement): void {
-		const searchContainer = rootEl.createDiv({
-			cls: 'nav-folder-title newly-added-files-search'
-		});
-
-		const searchInput = searchContainer.createEl('input', {
-			cls: 'newly-added-files-search-input',
-			attr: {
-				type: 'text',
-				placeholder: t('searchPlaceholder')
-			}
-		});
-
-		// 添加清除按钮
-		const clearButton = searchContainer.createDiv({
-			cls: 'newly-added-files-search-clear'
-		});
-		setIcon(clearButton, 'lucide-x');
-		clearButton.style.display = 'none';
-
-		// 添加搜索事件
-		searchInput.addEventListener('input', (e) => {
-			const value = (e.target as HTMLInputElement).value.toLowerCase();
-
-			// 清除之前的定时器
-			if (this.searchDebounceTimer) {
-				clearTimeout(this.searchDebounceTimer);
-			}
-
-			// 300ms 防抖
-			this.searchDebounceTimer = setTimeout(() => {
-				const fileItems = this.contentEl.querySelectorAll('.newly-added-files-file');
-				fileItems.forEach((item) => {
-					const title = item.querySelector('.newly-added-files-title-content')?.textContent?.toLowerCase() || '';
-					if (title.includes(value)) {
-						(item as HTMLElement).style.display = '';
-					} else {
-						(item as HTMLElement).style.display = 'none';
-					}
-				});
-				clearButton.style.display = value ? '' : 'none';
-			}, 300);
-		});
-
-		// 清除按钮事件
-		clearButton.addEventListener('click', () => {
-			searchInput.value = '';
-			const event = new Event('input');
-			searchInput.dispatchEvent(event);
-		});
+	public get data(): NewFilesData {
+		return this.settings.recentFiles;
 	}
 
-	private readonly removeFile = async (file: FilePath): Promise<void> => {
-		this.data.newFiles = this.data.newFiles.filter(
-			(currFile) => currFile.path !== file.path,
-		);
-		await this.plugin.saveData();
-	};
-	private readonly focusFile = (file: FilePath, newLeaf: boolean | PaneType): void => {
-		const targetFile = this.app.vault
-			.getFiles()
-			.find((f) => f.path === file.path);
-
-		if (targetFile) {
-			const leaf = this.app.workspace.getLeaf(newLeaf);
-			leaf.openFile(targetFile);
-		} else {
-			new Notice(t('cannotFindFile'));
-			this.data.newFiles = this.data.newFiles.filter(
-				(fp) => fp.path !== file.path,
-			);
-			this.plugin.saveData();
-			this.redraw();
-		}
-	};
-
-	private createFilterDropdown(containerEl: HTMLElement): void {
-		// 如果未启用筛选功能，直接返回
-		if (!this.data.enableFileTypeFilter) {
-			return;
-		}
-
-		const filterContainer = containerEl.createDiv({
-			cls: 'nav-folder-title newly-added-files-filter'
-		});
-
-		// 添加标签文本
-		filterContainer.createSpan({
-			cls: 'newly-added-files-filter-label',
-			text: t('filterLabel')
-		});
-
-		const filterDropdown = filterContainer.createEl('select', {
-			cls: 'dropdown'
-		});
-
-		const options = [
-			{value: 'all', label: t('allFiles'), icon: 'lucide-files'},
-			{value: 'md', label: t('markdown'), icon: 'lucide-file-text'},
-			{value: 'pdf', label: t('pdf'), icon: 'lucide-file-text'},
-			{value: 'image', label: t('images'), icon: 'lucide-image'},
-			{value: 'video', label: t('videos'), icon: 'lucide-video'},
-			{value: 'canvas', label: t('canvas'), icon: 'lucide-layout-dashboard'},
-			{value: 'other', label: t('otherFiles'), icon: 'lucide-file'}
-		];
-
-		options.forEach(option => {
-			const optionEl = filterDropdown.createEl('option', {
-				text: option.label,
-				value: option.value
-			});
-			if (option.value === this.data.activeFileType) {
-				optionEl.selected = true;
-			}
-		});
-
-		filterDropdown.addEventListener('change', async (event) => {
-			const target = event.target as HTMLSelectElement;
-			this.data.activeFileType = target.value;
-			await this.plugin.saveData();
-			this.redraw();
-		});
+	public set data(value: NewFilesData) {
+		this.settings.recentFiles = value;
 	}
-
-	private filterFilesByType(files: FilePath[]): FilePath[] {
-		if (!this.data.enableFileTypeFilter || this.data.activeFileType === 'all') {
-			return files;
-		}
-
-		const typeMap: Record<string, keyof typeof FILE_EXTENSIONS> = {
-			'md': 'MARKDOWN',
-			'pdf': 'PDF',
-			'image': 'IMAGE',
-			'video': 'VIDEO',
-			'canvas': 'CANVAS'
-		};
-
-		return files.filter(file => {
-			const extension = file.path.split('.').pop()?.toLowerCase();
-
-			if (this.data.activeFileType === 'other') {
-				return Object.values(typeMap).every(
-					type => !FileUtils.isFileType(extension, type)
-				);
-			}
-
-			const targetType = typeMap[this.data.activeFileType];
-			return targetType ? FileUtils.isFileType(extension, targetType) : true;
-		});
-	}
-
-	private async showFilePreview(file: FilePath, event: MouseEvent): Promise<void> {
-		// 移除可能已经存在的预览
-		const existingPreview = document.querySelector('.newly-added-files-preview');
-		if (existingPreview) existingPreview.remove();
-
-		const tfile = this.app.vault.getFileByPath(file.path);
-		if (!tfile) return;
-
-		const previewEl = document.createElement('div');
-		previewEl.className = 'newly-added-files-preview';
-
-		const rect = (event.target as HTMLElement).getBoundingClientRect();
-		previewEl.style.top = `${rect.bottom + 10}px`;
-		previewEl.style.left = `${rect.left}px`;
-
-		// 根据文件类型创建预览内容
-		const extension = file.path.split('.').pop()?.toLowerCase();
-
-		if (FileUtils.isFileType(extension, 'IMAGE')) {
-			// 图片预览
-			try {
-				const arrayBuffer = await this.app.vault.readBinary(tfile);
-				const blob = new Blob([arrayBuffer]);
-				const url = URL.createObjectURL(blob);
-
-				const img = document.createElement('img');
-				img.src = url;
-				img.className = 'newly-added-files-preview-img';
-				previewEl.appendChild(img);
-
-				// 清理 URL 对象
-				img.onload = () => URL.revokeObjectURL(url);
-				img.onerror = () => {
-					URL.revokeObjectURL(url);
-					console.error('Failed to load image preview');
-				};
-			} catch (e) {
-				console.error(t('previewError'), e);
-				return;
-			}
-		} else if (FileUtils.isFileType(extension, 'PDF')) {
-			// PDF 预览（只显示封面页）
-			previewEl.innerHTML = `<div class="newly-added-files-preview-pdf">${t('pdfPreview')}</div>`;
-		}
-
-		document.body.appendChild(previewEl);
-	}
-
-}
-
-export default class NewFilesPlugin extends Plugin {
-	public data: NewFilesData;
-	public view: NewFilesListView;
-	private isInitialized = false;
 
 	public async onload(): Promise<void> {
-		console.log('New Files: Loading plugin v' + this.manifest.version);
+		await this.loadSettings();
 
-		// 调试语言设置
-		//debugLocale();
+		this.moduleManager = new ModuleManager(this);
+		this.recentFilesModule = new RecentFilesModule(this);
+		this.moduleManager.register(this.recentFilesModule);
+		this.moduleManager.register(new RecentFilesFilterModule(this));
+		this.moduleManager.register(new RecentFilesPreviewModule(this));
+		this.moduleManager.register(new RecentFilesRenameModule(this));
 
-		await this.loadData();
-
-		addIcon(ICON_NAME, ICON_SVG);
-
-		this.registerView(
-			NewFilesListViewType,
-			(leaf) => (this.view = new NewFilesListView(leaf, this, this.data)),
-		);
-
-		this.addCommand({
-			id: 'files-list',
-			name: t('commandOpen'),
-			callback: async () => {
-				let leaf: WorkspaceLeaf | null;
-				[leaf] = this.app.workspace.getLeavesOfType(
-					NewFilesListViewType,
-				);
-				if (!leaf) {
-					leaf = this.app.workspace.getLeftLeaf(false);
-					await leaf?.setViewState({type: NewFilesListViewType});
-				}
-
-				if (leaf) {
-					await this.app.workspace.revealLeaf(leaf);
-				}
-			},
-		});
-
-		this.registerHoverLinkSource(
-			NewFilesListViewType,
-			{
-				display: t('viewTitle'),
-				defaultMod: true,
-			}
-		);
-
-		this.app.workspace.onLayoutReady(() => {
-			// 标记初始化完成
-			this.isInitialized = true;
-
-			// 注册文件事件监听器
-			this.registerFileEvents();
-		});
-
-		this.addSettingTab(new NewFilesSettingTab(this.app, this));
-	}
-
-	private registerFileEvents() {
-		this.registerEvent(this.app.vault.on('rename', this.handleRename));
-		this.registerEvent(this.app.vault.on('delete', this.handleDelete));
-		//只监听文件创建事件，不再监听所有文件
-		this.registerEvent(
-			this.app.vault.on('create', (file) => {
-				if (file instanceof TFile) {
-					this.handleNewFile(file);
-				}
-			})
-		);
-
-		console.log('NewFilesPlugin: File event listeners registered');
+		await this.moduleManager.loadAll();
+		this.addSettingTab(new RecentlyAddedFilesSettingsTab(this.app, this));
 	}
 
 	public onunload(): void {
-
+		this.moduleManager.unloadAll();
 	}
 
-	public async loadData(): Promise<void> {
-		this.data = Object.assign(DEFAULT_DATA, await super.loadData());
+	public async loadSettings(): Promise<void> {
+		const data: unknown = await super.loadData();
+		this.settings = normalizeSettings(data);
+		if (needsSettingsPersistence(data)) {
+			await super.saveData(this.settings);
+		}
 	}
 
+	public async saveSettings(): Promise<void> {
+		await super.saveData(this.settings);
+	}
+
+	// Compatibility methods for existing setting helper classes.
 	public async saveData(): Promise<void> {
-		await super.saveData(this.data);
+		await this.saveSettings();
+	}
+
+	public async pruneLength(): Promise<void> {
+		await this.recentFilesModule.pruneLength();
+	}
+
+	public async pruneOmittedFiles(): Promise<void> {
+		await this.recentFilesModule.pruneOmittedFiles();
 	}
 
 	public async onExternalSettingsChange(): Promise<void> {
-		await this.loadData();
-		await this.pruneLength();
-		await this.pruneOmittedFiles();
-		if (this.view) {
-			this.view.redraw();
-		}
+		await this.recentFilesModule.onExternalSettingsChange();
 	}
-
-	public readonly pruneOmittedFiles = async (): Promise<void> => {
-		this.data.newFiles = this.data.newFiles.filter(this.shouldAddFile);
-		await this.saveData();
-		if (this.view) {
-			this.view.redraw();
-		}
-	};
-
-	public readonly pruneLength = async (): Promise<void> => {
-		const toRemove =
-			this.data.newFiles.length - (this.data.maxLength || defaultMaxLength);
-		if (toRemove > 0) {
-			this.data.newFiles.splice(
-				this.data.newFiles.length - toRemove,
-				toRemove,
-			);
-		}
-
-		await this.saveData();
-		if (this.view) {
-			this.view.redraw();
-		}
-	};
-
-	public readonly shouldAddFile = (file: FilePath): boolean => {
-		if (!file || !file.path) {
-			return false;
-		}
-
-		// Matches for ignored Paths
-		const patterns: string[] = this.data.omittedPaths.filter(
-			(path) => path.length > 0,
-		);
-		const fileMatchesRegex = (pattern: string): boolean => {
-			try {
-				return new RegExp(pattern).test(file.path);
-			} catch (err) {
-				console.error('New Files: Invalid regex pattern: ' + pattern);
-				return false;
-			}
-		};
-
-		if (patterns.some(fileMatchesRegex)) {
-			return false
-		}
-
-		// Matches for ignored Tags
-		const tfile = this.app.vault.getFileByPath(file.path)
-		if (tfile) {
-			const omittedTags: string[] = this.data.omittedTags.filter(
-				(tag) => tag.length > 0,
-			);
-
-			// If there are no tags, the frontmatter.tags property is missing.
-			const fileTags: string[] = this.app.metadataCache.getFileCache(tfile)?.frontmatter?.tags || [];
-			const tagMatch = (tag: string): boolean => omittedTags.includes(tag);
-
-			if (fileTags.some(tagMatch)) {
-				return false;
-			}
-		}
-
-		return true;
-	};
 
 	public onUserEnable(): void {
-		// Open our view automatically only when the plugin is first enabled.
-		this.app.workspace.ensureSideLeaf(NewFilesListViewType, 'left', {reveal: true})
-	}
-
-	private readonly handleRename = async (
-		file: TAbstractFile,
-		oldPath: string,
-	): Promise<void> => {
-		if (!this.isInitialized) {
-			return;
-		}
-
-		const entry = this.data.newFiles.find(
-			(newFile) => newFile.path === oldPath,
-		);
-		if (entry) {
-			entry.path = file.path;
-			entry.basename = FileNameUtils.trimExtension(file.name);
-			await this.saveData();
-			if (this.view) {
-				this.view.redraw();
-			}
-		}
-	};
-
-	private readonly handleDelete = async (
-		file: TAbstractFile,
-	): Promise<void> => {
-		if (!this.isInitialized) {
-			return;
-		}
-
-		const beforeLen = this.data.newFiles.length;
-		this.data.newFiles = this.data.newFiles.filter(
-			(newFile) => newFile.path !== file.path,
-		);
-
-		if (beforeLen !== this.data.newFiles.length) {
-			await this.saveData();
-			if (this.view) {
-				this.view.redraw();
-			}
-		}
-	};
-
-	private readonly handleNewFile = async (
-		file: TAbstractFile
-	): Promise<void> => {
-		// 如果还没有初始化完成，直接返回
-		if (!this.isInitialized) {
-			return;
-		}
-
-		// 确保文件不在 newFiles 列表中，且不是打开的历史文件
-		const existingEntry = this.data.newFiles.find(
-			(newFile) => newFile.path === file.path
-		);
-
-		if (!existingEntry) {
-			this.data.newFiles.unshift({
-				path: file.path,
-				basename: FileNameUtils.trimExtension(file.name),
-			});
-
-			await this.saveData();
-			await this.pruneLength();
-			if (this.view) {
-				this.view.redraw();
-			}
-		}
-	};
-}
-
-class NewFilesSettingTab extends PluginSettingTab {
-	private readonly plugin: NewFilesPlugin;
-
-	constructor(app: App, plugin: NewFilesPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	public display(): void {
-		const {containerEl} = this;
-		containerEl.empty();
-
-		const patternFragment = document.createDocumentFragment();
-		const link = document.createElement('a');
-		link.href =
-			'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#writing_a_regular_expression_pattern';
-		link.text = 'MDN - Regular expressions';
-		patternFragment.append(t('settingOmittedPathsDesc'));
-		patternFragment.append(link);
-		patternFragment.append(t('settingOmittedPathsLink'));
-
-		new Setting(containerEl)
-			.setName(t('settingOmittedPaths'))
-			.setDesc(patternFragment)
-			.addTextArea((textArea) => {
-				textArea.inputEl.setAttr('rows', 6);
-				textArea
-					.setPlaceholder('^daily/\n\\.png$\nfoobar.*baz')
-					.setValue(this.plugin.data.omittedPaths.join('\n'));
-				textArea.inputEl.onblur = (e: FocusEvent) => {
-					const patterns = (e.target as HTMLInputElement).value;
-					this.plugin.data.omittedPaths = patterns.split('\n');
-					this.plugin.pruneOmittedFiles();
-					this.plugin.view.redraw();
-				};
-			});
-
-
-		const tagFragment = document.createDocumentFragment();
-		tagFragment.append(t('settingOmittedTagsDesc'));
-
-		new Setting(containerEl)
-			.setName(t('settingOmittedTags'))
-			.setDesc(tagFragment)
-			.addTextArea((textArea) => {
-				textArea.inputEl.setAttr('rows', 6);
-				textArea
-					.setPlaceholder('daily\nignore')
-					.setValue(this.plugin.data.omittedTags.join('\n'));
-				textArea.inputEl.onblur = (e: FocusEvent) => {
-					const patterns = (e.target as HTMLInputElement).value;
-					this.plugin.data.omittedTags = patterns.split('\n');
-					this.plugin.pruneOmittedFiles();
-					this.plugin.view.redraw();
-				};
-			});
-
-		// ListLengthSetting组件
-		new ListLengthSetting({
-			containerEl,
-			plugin: this.plugin,
-			defaultMaxLength
-		}).create();
-
-		// 在其他设置后添加新的扩展名显示设置
-		new ShowExtensionSetting({
-			containerEl,
-			plugin: this.plugin,
-			defaultShowExtension: false
-		}).create();
-
-		// 添加筛选功能开关设置
-		new FileTypeFilterToggleSetting({
-			containerEl,
-			plugin: this.plugin
-		}).create();
-
-		//文件类型筛选设置
-		new FileTypeFilterSetting({
-			containerEl,
-			plugin: this.plugin
-		}).create();
-
-		new SortOrderSetting({
-			containerEl,
-			plugin: this.plugin
-		}).create();
+		this.recentFilesModule.onUserEnable();
 	}
 }
-
-
-
-
-
-

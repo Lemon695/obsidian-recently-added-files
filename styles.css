@@ -31,6 +31,9 @@
 
 .newly-added-files-title-content {
 	flex-grow: 1;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
 }
 
 .newly-added-files-title:hover .newly-added-files-file-delete {
@@ -143,4 +146,17 @@
 	height: 120px;
 	color: var(--text-muted);
 	font-size: 0.9em;
+}
+
+.newly-added-files-hidden {
+	display: none !important;
+}
+
+.newly-added-files-pin-indicator {
+	display: inline-flex;
+	color: var(--color-yellow);
+}
+
+.newly-added-files-pinned .newly-added-files-title-content {
+	font-weight: 600;
 }

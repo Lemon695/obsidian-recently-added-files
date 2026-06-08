@@ -1,6 +1,6 @@
 {
 	"name": "recently-added-files",
-	"version": "1.1.2",
+	"version": "1.1.3",
 	"description": "List files by most new files",
 	"main": "main.js",
 	"scripts": {
@@ -8,7 +8,9 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"eslint": "eslint . --ext .ts,.tsx --fix",
 		"lint": "eslint .",
-		"lint:fix": "eslint . --fix"
+		"lint:fix": "eslint . --fix",
+		"test": "vitest run",
+		"test:watch": "vitest"
 	},
 	"keywords": [],
 	"author": "Lemon695",
@@ -31,6 +33,7 @@
 		"obsidian": "https://github.com/obsidianmd/obsidian-api/archive/23947b58d372ea02225324308e31d36b4aa95869.tar.gz",
 		"tslib": "2.6.2",
 		"typescript": "5.3.3",
-		"typescript-eslint": "^8.46.3"
+		"typescript-eslint": "^8.46.3",
+		"vitest": "^3.2.4"
 	}
 }

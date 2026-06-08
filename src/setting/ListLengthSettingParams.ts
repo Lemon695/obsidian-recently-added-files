@@ -1,6 +1,7 @@
-import {App, Notice, Plugin, Setting} from 'obsidian';
+import {Notice, Setting} from 'obsidian';
 import NewFilesPlugin from '../main';
 import {t} from "../i18n/locale";
+import {recentFilesSettingsI18n} from '../i18n/modules/recent-files/settings';
 
 export interface ListLengthSettingParams {
 	containerEl: HTMLElement;
@@ -20,9 +21,10 @@ export class ListLengthSetting {
 	}
 
 	public create(): void {
+		const i18n = t(recentFilesSettingsI18n);
 		new Setting(this.containerEl)
-			.setName(t('settingListLength'))
-			.setDesc(t('settingListLengthDesc'))
+			.setName(i18n.listLengthName)
+			.setDesc(i18n.listLengthDesc)
 			.addText((text) => {
 				// Set input type to number
 				text.inputEl.setAttr('type', 'number');
@@ -30,17 +32,22 @@ export class ListLengthSetting {
 
 				// Set initial value
 				text.setValue(this.plugin.data.maxLength?.toString() || '')
-					.onChange(this.handleChange.bind(this));
+					.onChange((value) => this.handleChange(value));
 
 				// Handle blur event
-				text.inputEl.onblur = this.handleBlur.bind(this);
+				text.inputEl.onblur = (event: FocusEvent) => {
+					this.handleBlur(event);
+				};
 			});
 	}
 
 	private handleChange(value: string): void {
+		const i18n = t(recentFilesSettingsI18n);
 		const parsed = parseInt(value, 10);
-		if (!Number.isNaN(parsed) && parsed <= 0) {
-			new Notice(t('settingListLengthError'));
+		if (Number.isNaN(parsed) || parsed <= 0) {
+			if (value.trim().length > 0) {
+				new Notice(i18n.listLengthError);
+			}
 			return;
 		}
 		this.plugin.data.maxLength = parsed;
@@ -52,8 +59,8 @@ export class ListLengthSetting {
 
 		if (!isNaN(parsed) && parsed > 0) {
 			this.plugin.data.maxLength = parsed;
-			this.plugin.pruneLength();
-			this.plugin.view.redraw();
+			void this.plugin.pruneLength();
+			this.plugin.view?.redraw();
 		}
 	}
 }
